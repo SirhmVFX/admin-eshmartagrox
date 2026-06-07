@@ -28,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-[#07112b] flex-col items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-green-900 flex-col items-center justify-center p-12">
         <p className="text-xs uppercase tracking-[0.35em] text-blue-300 mb-2">Eshmart Agrox Admin</p>
         <h1 className="text-3xl font-semibold text-white text-center">Manage Content</h1>
         <p className="mt-4 text-gray-400 text-center max-w-xs text-sm">Admin panel for Eshmart Agrox website</p>
