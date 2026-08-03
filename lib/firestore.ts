@@ -68,6 +68,8 @@ export interface SiteSettings {
     showSearch: boolean;
     showCart: boolean;
     showUser: boolean;
+    shopBannerImage?: string;
+    shopBannerTitle?: string;
     updatedAt?: Timestamp;
 }
 
@@ -90,6 +92,8 @@ export interface PortfolioItem {
     link?: string;
     order: number;
     active: boolean;
+    content?: string;       // HTML from WYSIWYG — shown on detail page
+    galleryImages?: string[]; // additional images shown on detail page
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
@@ -121,6 +125,7 @@ export interface BlogPost {
     active: boolean;
     order: number;
     tags: string[];
+    readingTime?: string;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
@@ -129,8 +134,8 @@ export interface AdminUser {
     id?: string;
     email: string;
     name: string;
-    role: "super_admin" | "admin" | "editor";
-    active: boolean;
+    roleId: "super_admin" | "admin" | "editor";
+    isActive: boolean;
     uid: string;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
@@ -155,6 +160,7 @@ export interface FirestoreProduct {
     isBestSeller?: boolean;
     tags: string[];
     inventory?: { size: string; color: string; quantity: number }[];
+    recommendedAddonIds?: string[]; // IDs of products to show as "Recommended Add-ons"
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
@@ -168,9 +174,11 @@ export interface Order {
     items: OrderItem[];
     totalAmount: number;
     paymentMethod: 'card' | 'bank' | 'ussd' | 'transfer' | 'cash';
-    status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+    paymentReference?: string;
+    status: 'pending' | 'received' | 'processing' | 'shipped' | 'out_for_delivery' | 'delivered' | 'cancelled';
     paymentStatus: 'unpaid' | 'paid' | 'refunded';
     notes?: string;
+    userId?: string;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
@@ -203,6 +211,8 @@ export interface Testimonial {
     text: string;
     rating: number;
     isVisible: boolean;
+    imgSrc?: string;
+    order?: number;
 }
 
 export interface TeamMember {
@@ -270,13 +280,50 @@ export const createHeroSlide = (data: Omit<HeroSlide, "id">) => create<HeroSlide
 export const updateHeroSlide = (id: string, data: Partial<HeroSlide>) => update<HeroSlide>("heroSlides", id, data);
 export const deleteHeroSlide = (id: string) => remove("heroSlides", id);
 
+export interface ProduceSection {
+    id?: string;
+    heading: string;
+    subtext: string;
+    updatedAt?: Timestamp;
+}
+
+// Produce Section header (single doc)
+export async function getProduceSection(): Promise<ProduceSection | null> {
+    const snap = await getDocs(collection(db, "produceSection"));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as ProduceSection;
+}
+export async function saveProduceSection(data: Partial<ProduceSection>): Promise<void> {
+    const snap = await getDocs(collection(db, "produceSection"));
+    if (snap.empty) await addDoc(collection(db, "produceSection"), { ...data, updatedAt: serverTimestamp() });
+    else await updateDoc(doc(db, "produceSection", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+}
+
 // Produce Cards
 export const getProduceCards = () => getOrdered<ProduceCard>("produceCards", "order");
 export const createProduceCard = (data: Omit<ProduceCard, "id">) => create<ProduceCard>("produceCards", data);
 export const updateProduceCard = (id: string, data: Partial<ProduceCard>) => update<ProduceCard>("produceCards", id, data);
 export const deleteProduceCard = (id: string) => remove("produceCards", id);
 
-// Quality Blocks
+export interface QualitySection {
+    id?: string;
+    heading: string;
+    mainImage: string;
+    secondaryImage: string;
+    updatedAt?: Timestamp;
+}
+
+// Quality Section header (single doc)
+export async function getQualitySection(): Promise<QualitySection | null> {
+    const snap = await getDocs(collection(db, "qualitySection"));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as QualitySection;
+}
+export async function saveQualitySection(data: Partial<QualitySection>): Promise<void> {
+    const snap = await getDocs(collection(db, "qualitySection"));
+    if (snap.empty) await addDoc(collection(db, "qualitySection"), { ...data, updatedAt: serverTimestamp() });
+    else await updateDoc(doc(db, "qualitySection", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+}
 export const getQualityBlocks = () => getOrdered<QualityBlock>("qualityBlocks", "order");
 export const createQualityBlock = (data: Omit<QualityBlock, "id">) => create<QualityBlock>("qualityBlocks", data);
 export const updateQualityBlock = (id: string, data: Partial<QualityBlock>) => update<QualityBlock>("qualityBlocks", id, data);
@@ -358,21 +405,32 @@ export const getNewProducts = async (limitCount = 4): Promise<FirestoreProduct[]
     return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreProduct));
 };
 
-// Admin Users
-export const getAdminUsers = () => getAll<AdminUser>("adminUsers");
-export const createAdminUser = (data: Omit<AdminUser, "id">) => create<AdminUser>("adminUsers", data);
-export const updateAdminUser = (id: string, data: Partial<AdminUser>) => update<AdminUser>("adminUsers", id, data);
-export const deleteAdminUser = (id: string) => remove("adminUsers", id);
-export async function getAdminUserByEmail(email: string): Promise<AdminUser | null> {
-    const q = query(collection(db, "adminUsers"), where("email", "==", email), limit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    const d = snap.docs[0];
-    return { id: d.id, ...d.data() } as AdminUser;
+// Admin Users — collection: "admins", doc ID = Firebase Auth UID
+export const getAdminUsers = () => getAll<AdminUser>("admins");
+export async function createAdminUser(data: Omit<AdminUser, "id">): Promise<string> {
+    // Use UID as the document ID to match Firestore rules
+    const { setDoc } = await import("firebase/firestore");
+    await setDoc(doc(db, "admins", data.uid), {
+        email: data.email,
+        name: data.name,
+        roleId: data.roleId,
+        isActive: data.isActive,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    });
+    return data.uid;
+}
+export const updateAdminUser = (id: string, data: Partial<AdminUser>) => update<AdminUser>("admins", id, data);
+export const deleteAdminUser = (id: string) => remove("admins", id);
+export async function getAdminUserByUid(uid: string): Promise<AdminUser | null> {
+    const snap = await getDoc(doc(db, "admins", uid));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return { id: snap.id, uid: snap.id, ...d } as AdminUser;
 }
 
-// Orders
-export const getOrders = () => getOrdered<Order>("orders", "createdAt");
+// Orders — note: API route writes createdAt as ISO string, not Timestamp
+export const getOrders = () => getAll<Order>("orders");
 export const getOrder = (id: string) => getOne<Order>("orders", id);
 export const createOrder = (data: Omit<Order, "id">) => create<Order>("orders", data);
 export const updateOrder = (id: string, data: Partial<Order>) => update<Order>("orders", id, data);
@@ -412,9 +470,15 @@ export const getUserCount = async () => {
 // Testimonials
 export const getTestimonials = () => getAll<Testimonial>("testimonials");
 export const getVisibleTestimonials = async (): Promise<Testimonial[]> => {
-    const q = query(collection(db, "testimonials"), where("isVisible", "==", true), orderBy("order"));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Testimonial));
+    try {
+        const q = query(collection(db, "testimonials"), where("isVisible", "==", true), orderBy("order"));
+        const snap = await getDocs(q);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Testimonial));
+    } catch {
+        // Fallback if 'order' field/index missing
+        const snap = await getDocs(query(collection(db, "testimonials"), where("isVisible", "==", true)));
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Testimonial));
+    }
 };
 export const createTestimonial = (data: Omit<Testimonial, "id">) => create<Testimonial>("testimonials", data);
 export const updateTestimonial = (id: string, data: Partial<Testimonial>) => update<Testimonial>("testimonials", id, data);
@@ -423,9 +487,15 @@ export const deleteTestimonial = (id: string) => remove("testimonials", id);
 // Team Members
 export const getTeamMembers = () => getAll<TeamMember>("team");
 export const getVisibleTeamMembers = async (): Promise<TeamMember[]> => {
-    const q = query(collection(db, "team"), where("isVisible", "==", true), orderBy("order"));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamMember));
+    try {
+        const q = query(collection(db, "team"), where("isVisible", "==", true), orderBy("order"));
+        const snap = await getDocs(q);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamMember));
+    } catch {
+        const snap = await getDocs(query(collection(db, "team"), where("isVisible", "==", true)));
+        const members = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TeamMember));
+        return members.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
 };
 export const createTeamMember = (data: Omit<TeamMember, "id">) => create<TeamMember>("team", data);
 export const updateTeamMember = (id: string, data: Partial<TeamMember>) => update<TeamMember>("team", id, data);
@@ -451,4 +521,199 @@ export async function getDashboardStats() {
         getDocs(collection(db, "blog")),
     ]);
     return { products: products.size, orders: orders.size, users: users.size, blog: blog.size };
+}
+
+// ── Contact Messages ───────────────────────────────────────────────────────
+
+export interface ContactMessage {
+    id?: string;
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    read: boolean;
+    createdAt?: Timestamp;
+}
+
+export const getContactMessages = () => getAll<ContactMessage>("contactMessages");
+export const markMessageRead = (id: string, read = true) =>
+    updateDoc(doc(db, "contactMessages", id), { read });
+export const deleteContactMessage = (id: string) => remove("contactMessages", id);
+
+// ── Coupons ────────────────────────────────────────────────────────────────
+
+export interface Coupon {
+    id?: string;
+    code: string;                            // e.g. "SUMMER20"
+    discountType: "percentage" | "fixed";    // % off or flat amount off
+    discountValue: number;                   // e.g. 20 (%) or 500 (₦)
+    minOrderAmount: number;                  // minimum cart total to apply
+    maxUses: number;                         // 0 = unlimited
+    usedCount: number;                       // incremented on each valid redemption
+    validFrom: string;                       // ISO date string "YYYY-MM-DD"
+    validUntil: string;                      // ISO date string "YYYY-MM-DD"
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getCoupons = () => getAll<Coupon>("coupons");
+export const getCoupon = (id: string) => getOne<Coupon>("coupons", id);
+export const createCoupon = (data: Omit<Coupon, "id">) => create<Coupon>("coupons", data);
+export const updateCoupon = (id: string, data: Partial<Coupon>) => update<Coupon>("coupons", id, data);
+export const deleteCoupon = (id: string) => remove("coupons", id);
+
+/** Look up a coupon by code string (case-insensitive) */
+export async function getCouponByCode(code: string): Promise<Coupon | null> {
+    const snap = await getDocs(collection(db, "coupons"));
+    const match = snap.docs.find(
+        (d) => (d.data().code as string).toUpperCase() === code.toUpperCase()
+    );
+    if (!match) return null;
+    return { id: match.id, ...match.data() } as Coupon;
+}
+
+// ── Staff Members (Admin Panel Users) ─────────────────────────────────────
+// Distinct from "team" (public-facing site team members).
+// Staff can log in to the admin and are assigned a role that controls
+// which sections they can access.
+
+export interface StaffMember {
+    id?: string;
+    name: string;
+    email: string;
+    role: "super_admin" | "admin" | "editor" | "viewer";
+    permissions: {
+        products: boolean;
+        orders: boolean;
+        blog: boolean;
+        content: boolean;       // hero, produce, quality, CTA, portfolio, services
+        navigation: boolean;
+        testimonials: boolean;
+        team: boolean;
+        faqs: boolean;
+        settings: boolean;
+        messages: boolean;
+        coupons: boolean;
+        users: boolean;
+    };
+    isActive: boolean;
+    invitedAt?: string;         // ISO string — when the invite was sent
+    lastLogin?: string;         // ISO string
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const DEFAULT_PERMISSIONS: StaffMember["permissions"] = {
+    products: false,
+    orders: false,
+    blog: false,
+    content: false,
+    navigation: false,
+    testimonials: false,
+    team: false,
+    faqs: false,
+    settings: false,
+    messages: false,
+    coupons: false,
+    users: false,
+};
+
+export const ROLE_DEFAULTS: Record<StaffMember["role"], StaffMember["permissions"]> = {
+    super_admin: {
+        products: true, orders: true, blog: true, content: true, navigation: true,
+        testimonials: true, team: true, faqs: true, settings: true, messages: true,
+        coupons: true, users: true,
+    },
+    admin: {
+        products: true, orders: true, blog: true, content: true, navigation: true,
+        testimonials: true, team: true, faqs: true, settings: false, messages: true,
+        coupons: true, users: true,
+    },
+    editor: {
+        products: false, orders: false, blog: true, content: true, navigation: false,
+        testimonials: true, team: true, faqs: true, settings: false, messages: false,
+        coupons: false, users: false,
+    },
+    viewer: {
+        products: true, orders: true, blog: true, content: true, navigation: false,
+        testimonials: false, team: false, faqs: false, settings: false, messages: true,
+        coupons: false, users: false,
+    },
+};
+
+export const getStaffMembers = () => getAll<StaffMember>("staff");
+export const getStaffMember = (id: string) => getOne<StaffMember>("staff", id);
+export const createStaffMember = (data: Omit<StaffMember, "id">) => create<StaffMember>("staff", data);
+export const updateStaffMember = (id: string, data: Partial<StaffMember>) =>
+    update<StaffMember>("staff", id, data);
+export const deleteStaffMember = (id: string) => remove("staff", id);
+
+// ── Currency Rates ─────────────────────────────────────────────────────────
+// Base currency is always NGN (Nigerian Naira). Each rate is NGN → target.
+// e.g. { code: "USD", symbol: "$", name: "US Dollar", rateFromNGN: 0.00065 }
+// 1 NGN = 0.00065 USD, so 1500 NGN = 1500 * 0.00065 = $0.975
+
+export interface CurrencyRate {
+    id?: string;
+    code: string;        // ISO 4217 e.g. "USD"
+    symbol: string;      // e.g. "$"
+    name: string;        // e.g. "US Dollar"
+    rateFromNGN: number; // how many units of this currency equal 1 NGN
+    active: boolean;
+    updatedAt?: Timestamp;
+}
+
+export const getCurrencyRates = () => getAll<CurrencyRate>("currencyRates");
+export const createCurrencyRate = (data: Omit<CurrencyRate, "id">) => create<CurrencyRate>("currencyRates", data);
+export const updateCurrencyRate = (id: string, data: Partial<CurrencyRate>) => update<CurrencyRate>("currencyRates", id, data);
+export const deleteCurrencyRate = (id: string) => remove("currencyRates", id);
+
+// ── Order Notifications ────────────────────────────────────────────────────
+
+export interface OrderNotification {
+    id?: string;
+    userId: string;
+    orderId: string;
+    orderRef: string;
+    title: string;
+    message: string;
+    status: string;
+    read: boolean;
+    createdAt?: Timestamp;
+}
+
+const STATUS_NOTIFICATION_COPY: Record<string, { title: string; message: string }> = {
+    received: { title: "Order Received", message: "We've received your order and will begin processing it shortly." },
+    pending: { title: "Order Pending", message: "Your order is pending confirmation. We'll update you soon." },
+    processing: { title: "Order Processing", message: "Great news — your order is now being processed and prepared." },
+    shipped: { title: "Order Shipped", message: "Your order is on its way! Expect delivery within the estimated timeframe." },
+    out_for_delivery: { title: "Out for Delivery", message: "Your order is out for delivery and will arrive today." },
+    delivered: { title: "Order Delivered", message: "Your order has been delivered. Thank you for shopping with Eshmart Agrox!" },
+    cancelled: { title: "Order Cancelled", message: "Your order has been cancelled. Contact us if you have any questions." },
+};
+
+/**
+ * Write a notification to the orderNotifications collection.
+ * Called by the admin whenever an order status is updated.
+ */
+export async function createOrderNotification(
+    order: Pick<Order, "id" | "customerEmail"> & { userId?: string },
+    status: string
+): Promise<void> {
+    if (!order.userId) return; // only notify logged-in customers
+    const copy = STATUS_NOTIFICATION_COPY[status] ?? {
+        title: `Order ${status}`,
+        message: `Your order status has been updated to ${status}.`,
+    };
+    await addDoc(collection(db, "orderNotifications"), {
+        userId: order.userId,
+        orderId: order.id ?? "",
+        orderRef: (order.id ?? "").slice(-8).toUpperCase(),
+        title: copy.title,
+        message: copy.message,
+        status,
+        read: false,
+        createdAt: serverTimestamp(),
+    });
 }

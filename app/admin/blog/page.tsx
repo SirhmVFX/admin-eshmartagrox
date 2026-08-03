@@ -7,7 +7,7 @@ import ImageUpload from "@/components/ImageUpload";
 import WysiwygEditor from "@/components/WysiwygEditor";
 import { MdAdd, MdEdit, MdDelete, MdClose } from "react-icons/md";
 
-const empty: Omit<BlogPost, "id"> = { title: "", slug: "", excerpt: "", content: "", coverImage: "", author: "", publishedAt: null, active: true, order: 0, tags: [] };
+const empty: Omit<BlogPost, "id"> = { title: "", slug: "", excerpt: "", content: "", coverImage: "", author: "", publishedAt: null, active: true, order: 0, tags: [], readingTime: "" };
 
 export default function BlogPage() {
     const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -22,7 +22,7 @@ export default function BlogPage() {
     useEffect(() => { load(); }, []);
 
     function openNew() { setEditing(null); setForm(empty); setError(""); setShowModal(true); }
-    function openEdit(p: BlogPost) { setEditing(p); setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt, content: p.content, coverImage: p.coverImage, author: p.author, publishedAt: p.publishedAt, active: p.active, order: p.order, tags: p.tags }); setError(""); setShowModal(true); }
+    function openEdit(p: BlogPost) { setEditing(p); setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt, content: p.content, coverImage: p.coverImage, author: p.author, publishedAt: p.publishedAt, active: p.active, order: p.order, tags: p.tags, readingTime: p.readingTime ?? "" }); setError(""); setShowModal(true); }
 
     async function handleSave() {
         if (!form.title) { setError("Title is required."); return; }
@@ -49,9 +49,8 @@ export default function BlogPage() {
                         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2">{error}</p>}
                         <div><label className="admin-label">Title</label><input className="admin-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="admin-label">Slug (URL)</label><input className="admin-input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value.replace(/\s+/g, "-").toLowerCase() })} /></div><div><label className="admin-label">Author</label><input className="admin-input" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} /></div></div>
-                        <div><label className="admin-label">Published At</label><input type="date" className="admin-input" value={form.publishedAt || ""} onChange={(e) => setForm({ ...form, publishedAt: e.target.value || null })} /></div>
-                        <ImageUpload value={form.coverImage} onChange={(url) => setForm({ ...form, coverImage: url })} label="Cover Image" />
-                        <div><label className="admin-label">Excerpt</label><textarea className="admin-input" rows={3} value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} /></div>
+                        <div className="grid grid-cols-2 gap-4"><div><label className="admin-label">Published At</label><input type="date" className="admin-input" value={form.publishedAt || ""} onChange={(e) => setForm({ ...form, publishedAt: e.target.value || null })} /></div><div><label className="admin-label">Reading Time</label><input className="admin-input" value={form.readingTime ?? ""} onChange={(e) => setForm({ ...form, readingTime: e.target.value })} placeholder="e.g. 5 min read" /></div></div>
+                        <ImageUpload value={form.coverImage} onChange={(url) => setForm({ ...form, coverImage: url })} label="Cover Image" />                        <div><label className="admin-label">Excerpt</label><textarea className="admin-input" rows={3} value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} /></div>
                         <div><label className="admin-label">Content (WYSIWYG)</label><WysiwygEditor content={form.content} onChange={(html) => setForm({ ...form, content: html })} placeholder="Write the full post…" /></div>
                         <div className="grid grid-cols-2 gap-4"><div><label className="admin-label">Order</label><input type="number" className="admin-input" value={form.order} onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })} /></div><div><label className="admin-label">Status</label><select className="admin-input" value={form.active ? "active" : "hidden"} onChange={(e) => setForm({ ...form, active: e.target.value === "active" })}><option value="active">Active</option><option value="hidden">Hidden</option></select></div></div>
                         <div className="flex gap-3 pt-2"><button className="btn-primary flex-1" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Post"}</button><button className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button></div>

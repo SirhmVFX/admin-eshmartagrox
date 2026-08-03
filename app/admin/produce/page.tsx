@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getProduceCards, createProduceCard, updateProduceCard, deleteProduceCard, ProduceCard } from "@/lib/firestore";
+import {
+    getProduceCards, createProduceCard, updateProduceCard, deleteProduceCard, ProduceCard,
+    getProduceSection, saveProduceSection, ProduceSection,
+} from "@/lib/firestore";
 import ImageUpload from "@/components/ImageUpload";
-import { MdAdd, MdEdit, MdDelete, MdClose } from "react-icons/md";
+import { MdAdd, MdEdit, MdDelete, MdClose, MdSave } from "react-icons/md";
 
 const empty: Omit<ProduceCard, "id"> = { number: "", title: "", description: "", image: "", ctaLabel: "Learn More", ctaHref: "/shop", order: 0, active: true };
 
@@ -17,8 +20,30 @@ export default function ProducePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
-    async function load() { setLoading(true); setCards(await getProduceCards()); setLoading(false); }
+    // Section heading/subtext
+    const [section, setSection] = useState<ProduceSection>({ heading: "", subtext: "" });
+    const [sectionSaving, setSectionSaving] = useState(false);
+    const [sectionSaved, setSectionSaved] = useState(false);
+
+    async function load() {
+        setLoading(true);
+        const [cardData, sectionData] = await Promise.all([getProduceCards(), getProduceSection()]);
+        setCards(cardData);
+        if (sectionData) setSection(sectionData);
+        setLoading(false);
+    }
     useEffect(() => { load(); }, []);
+
+    async function handleSaveSection() {
+        setSectionSaving(true);
+        try {
+            await saveProduceSection({ heading: section.heading, subtext: section.subtext });
+            setSectionSaved(true);
+            setTimeout(() => setSectionSaved(false), 2000);
+        } finally {
+            setSectionSaving(false);
+        }
+    }
 
     function openNew() { setEditing(null); setForm(empty); setError(""); setShowModal(true); }
     function openEdit(c: ProduceCard) { setEditing(c); setForm({ number: c.number, title: c.title, description: c.description, image: c.image, ctaLabel: c.ctaLabel, ctaHref: c.ctaHref, order: c.order, active: c.active }); setError(""); setShowModal(true); }
@@ -36,12 +61,53 @@ export default function ProducePage() {
 
     return (
         <div className="max-w-4xl space-y-4">
-            <div className="section-header"><div><h1 className="text-lg font-semibold text-gray-900">Produce Cards</h1><p className="text-xs text-gray-500 mt-0.5">First feature section (3 cards)</p></div><button className="btn-primary flex items-center gap-2" onClick={openNew}><MdAdd size={16} /> New Card</button></div>
+            <div className="section-header">
+                <div>
+                    <h1 className="text-lg font-semibold text-gray-900">Produce Cards</h1>
+                    <p className="text-xs text-gray-500 mt-0.5">First feature section — section heading and cards</p>
+                </div>
+                <button className="btn-primary flex items-center gap-2" onClick={openNew}><MdAdd size={16} /> New Card</button>
+            </div>
+
+            {/* Section heading & subtext */}
+            <div className="admin-card space-y-4">
+                <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Section Heading</p>
+                <div>
+                    <label className="admin-label">Heading</label>
+                    <input
+                        className="admin-input"
+                        value={section.heading}
+                        onChange={(e) => setSection({ ...section, heading: e.target.value })}
+                        placeholder="e.g. Our Produce"
+                    />
+                </div>
+                <div>
+                    <label className="admin-label">Subtext</label>
+                    <textarea
+                        className="admin-input"
+                        rows={2}
+                        value={section.subtext}
+                        onChange={(e) => setSection({ ...section, subtext: e.target.value })}
+                        placeholder="e.g. Premium Nigerian harvests meticulously selected for international prestige…"
+                    />
+                </div>
+                <button
+                    className="btn-primary flex items-center gap-2 py-2 px-4 text-sm"
+                    onClick={handleSaveSection}
+                    disabled={sectionSaving}
+                >
+                    <MdSave size={15} />
+                    {sectionSaved ? "Saved!" : sectionSaving ? "Saving…" : "Save Heading"}
+                </button>
+            </div>
+
+            {/* Cards table */}
             {loading ? <div className="admin-card text-sm text-gray-500">Loading…</div> : cards.length === 0 ? <div className="admin-card text-sm text-gray-500 text-center py-8">No cards yet.</div> : (
                 <div className="admin-card p-0 overflow-hidden"><table className="admin-table"><thead><tr><th>Preview</th><th>Number</th><th>Title</th><th>Order</th><th>Status</th><th>Actions</th></tr></thead><tbody>
                     {cards.map((c) => (<tr key={c.id}><td>{c.image && <Image src={c.image} alt="" width={64} height={40} className="w-16 h-10 object-cover" />}</td><td className="text-gray-500 font-mono">{c.number}</td><td className="font-medium text-gray-800 max-w-xs truncate">{c.title}</td><td>{c.order}</td><td><button onClick={() => toggleActive(c)}><span className={`badge ${c.active ? "badge-green" : "badge-gray"}`}>{c.active ? "Active" : "Inactive"}</span></button></td><td><div className="flex gap-2"><button className="btn-secondary py-1 px-2" onClick={() => openEdit(c)}><MdEdit size={14} /></button><button className="btn-danger py-1 px-2" onClick={() => handleDelete(c.id!)}><MdDelete size={14} /></button></div></td></tr>))}
                 </tbody></table></div>
             )}
+
             {showModal && (
                 <div className="modal-overlay"><div className="modal-box"><div className="modal-header"><h2 className="text-base font-semibold">{editing ? "Edit Card" : "New Card"}</h2><button onClick={() => setShowModal(false)}><MdClose size={20} /></button></div>
                     <div className="p-5 space-y-4">

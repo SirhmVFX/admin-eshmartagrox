@@ -1,23 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/auth';
-import { getFAQs, getVisibleFAQs, createFAQ, updateFAQ, deleteFAQ, FAQ } from '@/lib/firestore';
+import { getVisibleFAQs, createFAQ, updateFAQ, deleteFAQ, FAQ } from '@/lib/firestore';
 
 export default function FAQsPage() {
-    const { user, adminUser } = useAuth();
     const [faqs, setFaqs] = useState<FAQ[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState<FAQ | null>(null);
-
-    // useEffect(() => {
-    //     if (user && adminUser) {
-    //         loadFAQs();
-    //     } else {
-    //         setLoading(false);
-    //     }
-    // }, [user, adminUser]);
 
     async function loadFAQs() {
         try {
@@ -29,6 +19,8 @@ export default function FAQsPage() {
             setLoading(false);
         }
     }
+
+    useEffect(() => { loadFAQs(); }, []);
 
     const [formData, setFormData] = useState({
         question: '',
@@ -80,14 +72,6 @@ export default function FAQsPage() {
             alert('Failed to delete FAQ');
         }
     };
-
-    // if (!user || !adminUser) {
-    //     return <div>Please log in as an admin</div>;
-    // }
-
-    // if (loading) {
-    //     return <div>Loading...</div>;
-    // }
 
     return (
         <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }}>

@@ -19,6 +19,8 @@ const defaultSettings = {
     showSearch: true,
     showCart: true,
     showUser: true,
+    shopBannerImage: "",
+    shopBannerTitle: "Our Shop",
 };
 
 export default function SettingsPage() {
@@ -57,6 +59,11 @@ export default function SettingsPage() {
                 <div><label className="admin-label">Page Title (SEO)</label><input className="admin-input" value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
                 <div><label className="admin-label">Description (SEO)</label><textarea className="admin-input" rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
                 <ImageUpload value={form.logoUrl} onChange={(url) => set("logoUrl", url)} label="Logo Image" />
+                <div>
+                    <label className="admin-label">Favicon URL</label>
+                    <input className="admin-input" value={form.faviconUrl} onChange={(e) => set("faviconUrl", e.target.value)} placeholder="/favicon.ico" />
+                    <p className="text-xs text-gray-400 mt-1">Path to favicon (e.g. /favicon.ico) or a full URL.</p>
+                </div>
             </div>
 
             <div className="admin-card space-y-4">
@@ -69,6 +76,17 @@ export default function SettingsPage() {
                 <div><label className="admin-label">Contact Email</label><input type="email" className="admin-input" value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} /></div>
                 <div><label className="admin-label">Contact Phone</label><input className="admin-input" value={form.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} /></div>
                 <div><label className="admin-label">Address</label><input className="admin-input" value={form.address} onChange={(e) => set("address", e.target.value)} /></div>
+            </div>
+
+            <div className="admin-card space-y-4">
+                <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Shop Page</p>
+                <ImageUpload value={form.shopBannerImage ?? ""} onChange={(url) => set("shopBannerImage", url)} label="Shop Banner Image" />
+                <p className="text-xs text-gray-400 -mt-2">Banner shown at the top of the Shop page. Leave blank to use the default image.</p>
+                <div>
+                    <label className="admin-label">Shop Banner Title</label>
+                    <input className="admin-input" value={form.shopBannerTitle ?? ""} onChange={(e) => set("shopBannerTitle", e.target.value)} placeholder="Our Shop" />
+                    <p className="text-xs text-gray-400 mt-1">Heading shown over the shop banner. Defaults to "Our Shop".</p>
+                </div>
             </div>
 
             <div className="admin-card space-y-4">

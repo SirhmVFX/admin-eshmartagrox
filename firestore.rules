@@ -1,24 +1,112 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Public read for site content (storefront)
-    match /config/siteContent {
-      allow read: if true;
-      allow write: if false;
+
+    // ── Helper: is the requesting user an active admin? ──────────────────
+    function isAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isActive == true;
     }
 
-    // Roles: admins only (via custom claims or check admins collection in app)
+    // ── Admin users (admins collection) ──────────────────────────────────
+    // Each doc's ID = Firebase Auth UID
+    match /admins/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ── Config / roles (read-only reference data) ────────────────────────
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     match /roles/{roleId} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
-    match /admins/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+    // ── Public storefront collections (read by anyone, write by admin) ───
+    match /heroSlides/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /produceCards/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /qualityBlocks/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /qualitySection/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /cta/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /navigation/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /portfolio/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /services/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /blog/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /testimonials/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /team/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /faqs/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Deny direct client writes — admin panel uses API + Admin SDK
+    // ── E-commerce: products (public read, admin write) ──────────────────
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Orders (admin full access; authenticated users can create) ────────
+    match /orders/{id} {
+      allow read: if isAdmin();
+      allow create: if true;  // API route creates orders after payment
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Users (users can read/write their own doc; admin reads all) ───────
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── Newsletter subscriptions ──────────────────────────────────────────
+    match /newsletter/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

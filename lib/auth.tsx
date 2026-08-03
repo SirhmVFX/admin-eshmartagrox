@@ -1,9 +1,24 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./firebase";
-import { getAdminUserByEmail, AdminUser } from "./firestore";
+import {
+    User,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut as firebaseSignOut,
+    createUserWithEmailAndPassword,
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./firebase";
+
+export interface AdminUser {
+    id?: string;
+    email: string;
+    name: string;
+    roleId: "super_admin" | "admin" | "editor";
+    isActive: boolean;
+    uid: string;
+}
 
 interface AuthContextType {
     user: User | null;
@@ -25,8 +40,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
             setUser(firebaseUser);
             if (firebaseUser) {
-                const admin = await getAdminUserByEmail(firebaseUser.email || "");
-                setAdminUser(admin);
+                try {
+                    // The admins collection uses the Firebase Auth UID as the document ID
+                    const snap = await getDoc(doc(db, "admins", firebaseUser.uid));
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        setAdminUser({
+                            id: snap.id,
+                            email: data.email ?? firebaseUser.email ?? "",
+                            name: data.name ?? "Admin",
+                            roleId: data.roleId ?? "editor",
+                            isActive: data.isActive ?? false,
+                            uid: firebaseUser.uid,
+                        });
+                    } else {
+                        // No matching admin doc — user is authenticated but not an admin
+                        setAdminUser(null);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch admin user:", e);
+                    setAdminUser(null);
+                }
             } else {
                 setAdminUser(null);
             }

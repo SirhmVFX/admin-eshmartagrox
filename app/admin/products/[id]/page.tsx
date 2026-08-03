@@ -2,351 +2,287 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
-import { getProduct, updateProduct, FirestoreProduct, getProducts } from '@/lib/firestore';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { getProduct, updateProduct, getProducts, FirestoreProduct } from '@/lib/firestore';
+import ImageUpload from '@/components/ImageUpload';
+import { MdClose, MdAdd } from 'react-icons/md';
 
-interface EditProductPageProps {
-    params: {
-        id: string;
-    };
-}
+interface Props { params: { id: string } }
 
-export default function EditProductPage({ params }: EditProductPageProps) {
-    const { user, adminUser } = useAuth();
+export default function EditProductPage({ params }: Props) {
     const router = useRouter();
-    const [product, setProduct] = useState<FirestoreProduct | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState('');
+    const [product, setProduct] = useState<FirestoreProduct | null>(null);
+    const [allProducts, setAllProducts] = useState<FirestoreProduct[]>([]);
+    const [images, setImages] = useState<string[]>(['', '']);
+    const [form, setForm] = useState({
+        name: '',
+        price: '',
+        originalPrice: '',
+        category: '',
+        subcategory: '',
+        sizes: '',
+        colors: '',
+        description: '',
+        details: [''],
+        rating: '0',
+        reviews: '0',
+        inStock: true,
+        isNew: false,
+        isBestSeller: false,
+        tags: '',
+        recommendedAddonIds: [] as string[],
+    });
 
     useEffect(() => {
-        if (user && adminUser && params.id) {
-            loadProduct();
-        } else {
-            setLoading(false);
-        }
-    }, [user, adminUser, params.id]);
+        if (!params.id) return;
+        Promise.all([getProduct(params.id), getProducts()])
+            .then(([p, all]) => {
+                if (!p) { setError('Product not found.'); setLoading(false); return; }
+                setProduct(p);
+                setAllProducts(all.filter(x => x.id !== params.id));
+                setImages([p.images?.[0] || '', p.images?.[1] || '']);
+                setForm({
+                    name: p.name,
+                    price: String(p.price),
+                    originalPrice: p.originalPrice ? String(p.originalPrice) : '',
+                    category: p.category || '',
+                    subcategory: p.subcategory || '',
+                    sizes: p.sizes?.join(', ') || '',
+                    colors: p.colors?.join(', ') || '',
+                    description: p.description || '',
+                    details: p.details?.length ? p.details : [''],
+                    rating: String(p.rating ?? 0),
+                    reviews: String(p.reviews ?? 0),
+                    inStock: p.inStock ?? true,
+                    isNew: p.isNew ?? false,
+                    isBestSeller: p.isBestSeller ?? false,
+                    tags: p.tags?.join(', ') || '',
+                    recommendedAddonIds: p.recommendedAddonIds ?? [],
+                });
+                setLoading(false);
+            })
+            .catch(() => { setError('Failed to load product.'); setLoading(false); });
+    }, [params.id]);
 
-    async function loadProduct() {
-        try {
-            const data = await getProduct(params.id);
-            setProduct(data);
-        } catch (e) {
-            console.error('Failed to load product:', e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const [formData, setFormData] = useState<FirestoreProduct | null>(null);
-
-    useEffect(() => {
-        if (product) {
-            setFormData({ ...product });
-        }
-    }, [product]);
+    const set = (key: keyof typeof form, value: any) => setForm(prev => ({ ...prev, [key]: value }));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData || !product) return;
-
-        setSaving(true);
+        if (!form.name) { setError('Product name is required.'); return; }
+        setSaving(true); setError('');
         try {
-            await updateProduct(product.id!, formData);
+            const data: Partial<FirestoreProduct> = {
+                name: form.name.trim(),
+                price: Number(form.price),
+                originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
+                category: form.category.trim(),
+                subcategory: form.subcategory.trim() || undefined,
+                images: images.filter(Boolean),
+                sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()).filter(Boolean) : [],
+                colors: form.colors ? form.colors.split(',').map(s => s.trim()).filter(Boolean) : [],
+                description: form.description.trim(),
+                details: form.details.filter(d => d.trim()),
+                rating: Number(form.rating) || 0,
+                reviews: Number(form.reviews) || 0,
+                inStock: form.inStock,
+                isNew: form.isNew,
+                isBestSeller: form.isBestSeller,
+                tags: form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : [],
+                recommendedAddonIds: form.recommendedAddonIds,
+            };
+            await updateProduct(params.id, data);
             router.push('/admin/products');
         } catch (e: any) {
-            alert(e.message);
+            setError(e.message || 'Failed to save changes.');
             setSaving(false);
         }
     };
 
-    const handleImageUpload = async (file: File, setImage: (url: string) => void) => {
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await uploadToCloudinary(file);
-            setImage(url);
-            setUploading(false);
-        } catch (e: any) {
-            alert(e.message);
-            setUploading(false);
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setImage: (url: string) => void) => {
-        if (e.target.files && e.target.files[0]) {
-            handleImageUpload(e.target.files[0], setImage);
-        }
-    };
-
-    if (!user || !adminUser) {
-        return <div>Please log in as an admin</div>;
-    }
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
-
-    if (!formData) {
-        return <div>Product not found</div>;
-    }
+    if (loading) return <div className="admin-card text-sm text-gray-500">Loading product…</div>;
+    if (error && !product) return <div className="admin-card text-sm text-red-600">{error}</div>;
 
     return (
-        <div style={{ padding: 24, maxWidth: 800, margin: '0 auto' }}>
-            <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 32 }}>Edit Product</h1>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                {/* Images */}
+        <div className="max-w-3xl space-y-4">
+            <div className="section-header">
                 <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Product Images</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Main Image</label>
-                            <label style={{
-                                width: '100%',
-                                aspectRatio: '1/1',
-                                background: formData.images[0] ? 'none' : '#f5f5f5',
-                                border: '2px dashed #ccc',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                overflow: 'hidden',
-                            }}>
-                                {formData.images[0] ? (
-                                    <>
-                                        <img src={formData.images[0]} alt="Main" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: 8, fontSize: 11 }}>
-                                            Click to change
-                                        </div>
-                                    </>
-                                ) : uploading ? (
-                                    <span style={{ color: '#666' }}>Uploading...</span>
-                                ) : (
-                                    <span style={{ color: '#999' }}>Click to upload</span>
-                                )}
-                                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (url) => {
-                                    setFormData(prev => prev ? { ...prev, images: [url, prev.images[1] || ''] } : null);
-                                })} style={{ display: 'none' }} />
-                            </label>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Secondary Image</label>
-                            <label style={{
-                                width: '100%',
-                                aspectRatio: '1/1',
-                                background: formData.images[1] ? 'none' : '#f5f5f5',
-                                border: '2px dashed #ccc',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                overflow: 'hidden',
-                            }}>
-                                {formData.images[1] ? (
-                                    <>
-                                        <img src={formData.images[1]} alt="Secondary" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: 8, fontSize: 11 }}>
-                                            Click to change
-                                        </div>
-                                    </>
-                                ) : uploading ? (
-                                    <span style={{ color: '#666' }}>Uploading...</span>
-                                ) : (
-                                    <span style={{ color: '#999' }}>Click to upload</span>
-                                )}
-                                <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (url) => {
-                                    setFormData(prev => prev ? { ...prev, images: [prev.images[0] || '', url] } : null);
-                                })} style={{ display: 'none' }} />
-                            </label>
-                        </div>
+                    <h1 className="text-lg font-semibold text-gray-900">Edit Product</h1>
+                    <p className="text-xs text-gray-500 mt-0.5">{product?.name}</p>
+                </div>
+                <button className="btn-secondary" onClick={() => router.push('/admin/products')}>
+                    ← Back to Products
+                </button>
+            </div>
+
+            {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Images */}
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Product Images</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <ImageUpload
+                            value={images[0]}
+                            onChange={url => setImages(prev => { const n = [...prev]; n[0] = url; return n; })}
+                            label="Main Image"
+                        />
+                        <ImageUpload
+                            value={images[1]}
+                            onChange={url => setImages(prev => { const n = [...prev]; n[1] = url; return n; })}
+                            label="Secondary Image"
+                        />
                     </div>
                 </div>
 
                 {/* Basic Info */}
-                <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Basic Information</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Basic Information</p>
+                    <div>
+                        <label className="admin-label">Product Name *</label>
+                        <input required className="admin-input" value={form.name} onChange={e => set('name', e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Product Name</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            />
+                            <label className="admin-label">Price</label>
+                            <input type="number" min="0" step="0.01" className="admin-input" value={form.price} onChange={e => set('price', e.target.value)} />
                         </div>
                         <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Price (₦)</label>
-                            <input
-                                type="number"
-                                value={formData.price}
-                                onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            />
+                            <label className="admin-label">Original Price (sale)</label>
+                            <input type="number" min="0" step="0.01" className="admin-input" value={form.originalPrice} onChange={e => set('originalPrice', e.target.value)} placeholder="Leave blank if not on sale" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="admin-label">Category</label>
+                            <input className="admin-input" value={form.category} onChange={e => set('category', e.target.value)} placeholder="e.g. Vegetables" />
                         </div>
                         <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Original Price</label>
-                            <input
-                                type="number"
-                                value={formData.originalPrice || ''}
-                                onChange={e => setFormData({ ...formData, originalPrice: e.target.value ? Number(e.target.value) : undefined })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Category</label>
-                            <select
-                                value={formData.category}
-                                onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            >
-                                <option value="Tops">Tops</option>
-                                <option value="Bottoms">Bottoms</option>
-                                <option value="Outerwear">Outerwear</option>
-                                <option value="Accessories">Accessories</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Subcategory</label>
-                            <select
-                                value={formData.subcategory}
-                                onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            >
-                                <option value="T-Shirts">T-Shirts</option>
-                                <option value="Hoodies">Hoodies</option>
-                                <option value="Sweatshirts">Sweatshirts</option>
-                                <option value="Long Sleeves">Long Sleeves</option>
-                                <option value="Pants">Pants</option>
-                                <option value="Shorts">Shorts</option>
-                                <option value="Jackets">Jackets</option>
-                                <option value="Headwear">Headwear</option>
-                                <option value="Bags">Bags</option>
-                                <option value="Socks">Socks</option>
-                            </select>
+                            <label className="admin-label">Subcategory</label>
+                            <input className="admin-input" value={form.subcategory} onChange={e => set('subcategory', e.target.value)} placeholder="e.g. Export Grade" />
                         </div>
                     </div>
                 </div>
 
-                {/* Inventory */}
-                <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Inventory</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Sizes</label>
-                            <input
-                                type="text"
-                                value={formData.sizes.join(', ')}
-                                onChange={e => setFormData({ ...formData, sizes: e.target.value.split(',').map(s => s.trim()) })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Colors</label>
-                            <input
-                                type="text"
-                                value={formData.colors.join(', ')}
-                                onChange={e => setFormData({ ...formData, colors: e.target.value.split(',').map(s => s.trim()) })}
-                                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                            />
-                        </div>
+                {/* Variants */}
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Variants & Options</p>
+                    <div>
+                        <label className="admin-label">Sizes / Grades (comma-separated)</label>
+                        <input className="admin-input" value={form.sizes} onChange={e => set('sizes', e.target.value)} placeholder="e.g. 500g, 1kg, 5kg" />
+                    </div>
+                    <div>
+                        <label className="admin-label">Colors / Varieties (comma-separated)</label>
+                        <input className="admin-input" value={form.colors} onChange={e => set('colors', e.target.value)} placeholder="e.g. Fresh, Dried, Frozen" />
                     </div>
                 </div>
 
                 {/* Description */}
-                <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Description</h3>
-                    <textarea
-                        value={formData.description}
-                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                        style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14, minHeight: 80 }}
-                    />
-                </div>
-
-                {/* Tags & Status */}
-                <div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Tags & Status</h3>
-                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        {formData.tags.map((tag, idx) => (
-                            <span key={idx} style={{
-                                background: '#f0f0f0',
-                                padding: '4px 10px',
-                                borderRadius: 0,
-                                fontSize: 12,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                            }}>
-                                {tag}
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, tags: formData.tags.filter((_, i) => i !== idx) })}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}
-                                >
-                                    ×
-                                </button>
-                            </span>
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Description</p>
+                    <div>
+                        <label className="admin-label">Short Description</label>
+                        <textarea className="admin-input" rows={3} value={form.description} onChange={e => set('description', e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="admin-label">Product Details / Features</label>
+                        {form.details.map((detail, idx) => (
+                            <div key={idx} className="flex gap-2 mb-2">
+                                <input
+                                    className="admin-input flex-1"
+                                    value={detail}
+                                    onChange={e => {
+                                        const n = [...form.details];
+                                        n[idx] = e.target.value;
+                                        set('details', n);
+                                    }}
+                                />
+                                {form.details.length > 1 && (
+                                    <button type="button" onClick={() => set('details', form.details.filter((_, i) => i !== idx))} className="btn-danger p-2">
+                                        <MdClose size={14} />
+                                    </button>
+                                )}
+                            </div>
                         ))}
-                        <input
-                            type="text"
-                            placeholder="Add tag..."
-                            style={{ padding: '4px 10px', border: '1px solid #e0e0e0', fontSize: 12, flex: 1, minWidth: 100 }}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                    const value = e.currentTarget.value.trim();
-                                    if (value && !formData.tags.includes(value)) {
-                                        setFormData({ ...formData, tags: [...formData.tags, value] });
-                                        e.currentTarget.value = '';
-                                    }
-                                }
-                            }}
-                        />
+                        <button type="button" className="btn-secondary text-xs py-1 px-3" onClick={() => set('details', [...form.details, ''])}>
+                            + Add Detail
+                        </button>
                     </div>
-                    <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                                type="checkbox"
-                                checked={formData.inStock}
-                                onChange={e => setFormData({ ...formData, inStock: e.target.checked })}
-                            />
-                            <span style={{ fontSize: 13 }}>In Stock</span>
+                </div>
+
+                {/* Recommended Add-ons */}
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Recommended Add-ons</p>
+                    <p className="text-xs text-gray-500">Select products to show as "Customers also buy" on this product's page.</p>
+                    {allProducts.length === 0 ? (
+                        <p className="text-xs text-gray-400">No other products available to recommend.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto border border-gray-100 p-3">
+                            {allProducts.map(p => {
+                                const checked = form.recommendedAddonIds.includes(p.id!);
+                                return (
+                                    <label key={p.id} className={`flex items-center gap-2 px-3 py-2 border cursor-pointer text-sm transition-colors ${checked ? 'border-green-600 bg-green-50 text-green-800' : 'border-gray-200 hover:border-gray-400 text-gray-700'}`}>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={checked}
+                                            onChange={() => set('recommendedAddonIds', checked
+                                                ? form.recommendedAddonIds.filter(id => id !== p.id)
+                                                : [...form.recommendedAddonIds, p.id!]
+                                            )}
+                                        />
+                                        <MdAdd size={14} className={checked ? 'text-green-600 rotate-45' : 'text-gray-400'} />
+                                        <div className="min-w-0">
+                                            <p className="font-medium truncate">{p.name}</p>
+                                            <p className="text-xs text-gray-400">₦{p.price.toLocaleString()}</p>
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    )}
+                    {form.recommendedAddonIds.length > 0 && (
+                        <p className="text-xs text-green-700 font-medium">{form.recommendedAddonIds.length} add-on(s) selected</p>
+                    )}
+                </div>
+
+                {/* Status */}
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Status & Tags</p>                    <div>
+                        <label className="admin-label">Tags (comma-separated)</label>
+                        <input className="admin-input" value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="e.g. okra, export, fresh" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="admin-label">Rating (0–5)</label>
+                            <input type="number" min="0" max="5" step="0.1" className="admin-input" value={form.rating} onChange={e => set('rating', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="admin-label">Review Count</label>
+                            <input type="number" min="0" className="admin-input" value={form.reviews} onChange={e => set('reviews', e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" checked={form.inStock} onChange={e => set('inStock', e.target.checked)} />
+                            In Stock
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                                type="checkbox"
-                                checked={formData.isNew}
-                                onChange={e => setFormData({ ...formData, isNew: e.target.checked })}
-                            />
-                            <span style={{ fontSize: 13 }}>New Arrival</span>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" checked={form.isNew} onChange={e => set('isNew', e.target.checked)} />
+                            Mark as New Arrival
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input
-                                type="checkbox"
-                                checked={formData.isBestSeller}
-                                onChange={e => setFormData({ ...formData, isBestSeller: e.target.checked })}
-                            />
-                            <span style={{ fontSize: 13 }}>Best Seller</span>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input type="checkbox" checked={form.isBestSeller} onChange={e => set('isBestSeller', e.target.checked)} />
+                            Mark as Best Seller
                         </label>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 16 }}>
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        style={{ flex: 1, padding: '16px 32px', background: '#0a0a0a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
-                    >
-                        {saving ? 'Saving...' : 'Save Changes'}
+                <div className="flex gap-4">
+                    <button type="submit" disabled={saving} className="btn-primary px-8 py-3">
+                        {saving ? 'Saving…' : 'Save Changes'}
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => router.push('/admin/products')}
-                        style={{ padding: '16px 32px', background: '#f5f5f5', color: '#0a0a0a', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-                    >
+                    <button type="button" className="btn-secondary px-8 py-3" onClick={() => router.push('/admin/products')}>
                         Cancel
                     </button>
                 </div>

@@ -2,216 +2,227 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
-import { getOrder, updateOrder, Order } from '@/lib/firestore';
+import { getOrder, updateOrder, createOrderNotification, Order } from '@/lib/firestore';
 import { formatPrice } from '@/lib/products';
+import { MdNotifications } from 'react-icons/md';
 
-interface OrderDetailPageProps {
-    params: {
-        id: string;
-    };
+interface Props { params: { id: string } }
+
+function fmtDate(val: any): string {
+    if (!val) return '—';
+    if (typeof val === 'string') return new Date(val).toLocaleString();
+    if (typeof val?.toMillis === 'function') return new Date(val.toMillis()).toLocaleString();
+    return '—';
 }
 
-export default function OrderDetailPage({ params }: OrderDetailPageProps) {
-    const { user, adminUser } = useAuth();
+const STATUS_OPTIONS: { value: Order['status']; label: string }[] = [
+    { value: 'received', label: 'Order Received' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'processing', label: 'Processing' },
+    { value: 'shipped', label: 'Shipped' },
+    { value: 'out_for_delivery', label: 'Out for Delivery' },
+    { value: 'delivered', label: 'Delivered' },
+    { value: 'cancelled', label: 'Cancelled' },
+];
+
+const STATUS_BADGE: Record<string, string> = {
+    received: 'badge-blue',
+    pending: 'badge-yellow',
+    processing: 'badge-blue',
+    shipped: 'badge-blue',
+    out_for_delivery: 'badge-blue',
+    delivered: 'badge-green',
+    cancelled: 'badge-red',
+};
+
+export default function OrderDetailPage({ params }: Props) {
     const router = useRouter();
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
-
-    useEffect(() => {
-        if (user && adminUser && params.id) {
-            loadOrder();
-        } else {
-            setLoading(false);
-        }
-    }, [user, adminUser, params.id]);
-
-    async function loadOrder() {
-        try {
-            const data = await getOrder(params.id);
-            setOrder(data);
-        } catch (e) {
-            console.error('Failed to load order:', e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
+    const [saved, setSaved] = useState(false);
+    const [notifSent, setNotifSent] = useState(false);
     const [status, setStatus] = useState<Order['status']>('pending');
     const [paymentStatus, setPaymentStatus] = useState<Order['paymentStatus']>('unpaid');
+    const [sendNotif, setSendNotif] = useState(true);
 
     useEffect(() => {
-        if (order) {
-            setStatus(order.status);
-            setPaymentStatus(order.paymentStatus);
-        }
-    }, [order]);
+        if (!params.id) return;
+        getOrder(params.id)
+            .then(data => {
+                if (data) {
+                    setOrder(data);
+                    setStatus(data.status);
+                    setPaymentStatus(data.paymentStatus);
+                }
+            })
+            .catch(e => console.error(e))
+            .finally(() => setLoading(false));
+    }, [params.id]);
 
-    async function updateOrderHandler() {
+    async function handleUpdate() {
         if (!order) return;
         setUpdating(true);
         try {
             await updateOrder(order.id!, { status, paymentStatus });
-            setOrder({ ...order, status, paymentStatus });
-            setUpdating(false);
-        } catch (e) {
-            alert('Failed to update order');
+            setOrder(prev => prev ? { ...prev, status, paymentStatus } : prev);
+
+            // Send notification if customer has a userId and option is checked
+            if (sendNotif && order.userId) {
+                await createOrderNotification(
+                    { id: order.id, customerEmail: order.customerEmail, userId: order.userId },
+                    status
+                );
+                setNotifSent(true);
+                setTimeout(() => setNotifSent(false), 3000);
+            }
+
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch {
+            alert('Failed to update order.');
+        } finally {
             setUpdating(false);
         }
     }
 
-    const statusLabels: Record<Order['status'], string> = {
-        pending: 'Pending',
-        processing: 'Processing',
-        shipped: 'Shipped',
-        delivered: 'Delivered',
-        cancelled: 'Cancelled',
-    };
+    if (loading) return <div className="admin-card text-sm text-gray-500">Loading order…</div>;
+    if (!order) return <div className="admin-card text-sm text-red-600">Order not found.</div>;
 
-    const paymentLabels: Record<Order['paymentStatus'], string> = {
-        unpaid: 'Unpaid',
-        paid: 'Paid',
-        refunded: 'Refunded',
-    };
-
-    if (!user || !adminUser) {
-        return <div>Please log in as an admin</div>;
-    }
-
-    if (loading) {
-        return <div>Loading...</div>;
-    }
-
-    if (!order) {
-        return <div>Order not found</div>;
-    }
+    const currentBadge = STATUS_BADGE[order.status] ?? 'badge-gray';
+    const currentLabel = STATUS_OPTIONS.find(o => o.value === order.status)?.label ?? order.status;
 
     return (
-        <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <div className="max-w-4xl space-y-4">
+            {/* Header */}
+            <div className="section-header">
                 <div>
-                    <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Order #{order.id?.slice(-6)}</h1>
-                    <p style={{ color: '#666' }}>Order details and management</p>
+                    <h1 className="text-lg font-semibold text-gray-900">Order #{order.id?.slice(-8).toUpperCase()}</h1>
+                    <p className="text-xs text-gray-500 mt-0.5">{fmtDate(order.createdAt)}</p>
                 </div>
-                <button
-                    onClick={() => router.push('/admin/orders')}
-                    style={{ padding: '10px 20px', background: '#f5f5f5', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-                >
-                    ← Back to Orders
-                </button>
-            </div>
-
-            {/* Order Info */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
-                <div style={{ background: '#f5f5f5', padding: 20 }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 700, color: '#666', textTransform: 'uppercase', marginBottom: 16 }}>Order Information</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Date:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{order.createdAt ? new Date(order.createdAt.toMillis()).toLocaleString() : 'N/A'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Order ID:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>#{order.id?.slice(-12)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Total:</span>
-                        <span style={{ fontSize: 13, fontWeight: 900, color: '#0a0a0a' }}>{formatPrice(order.totalAmount)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Payment Method:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>{order.paymentMethod}</span>
-                    </div>
-                </div>
-
-                <div style={{ background: '#f5f5f5', padding: 20 }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 700, color: '#666', textTransform: 'uppercase', marginBottom: 16 }}>Customer Information</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Name:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{order.customerName}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Email:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{order.customerEmail}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 13 }}>Phone:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{order.customerPhone}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 13 }}>Address:</span>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{order.customerAddress}</span>
-                    </div>
+                <div className="flex items-center gap-3">
+                    <span className={`badge ${currentBadge}`}>{currentLabel}</span>
+                    <button className="btn-secondary" onClick={() => router.push('/admin/orders')}>
+                        ← Back to Orders
+                    </button>
                 </div>
             </div>
 
-            {/* Status Updates */}
-            <div style={{ background: '#f5f5f5', padding: 24, marginBottom: 32 }}>
-                <h3 style={{ fontSize: 12, fontWeight: 700, color: '#666', textTransform: 'uppercase', marginBottom: 16 }}>Update Order Status</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            {saved && (
+                <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 flex items-center gap-2">
+                    Order updated successfully.
+                    {notifSent && (
+                        <span className="flex items-center gap-1 text-green-600 text-xs ml-2">
+                            <MdNotifications size={14} /> Notification sent to customer.
+                        </span>
+                    )}
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Order info */}
+                <div className="admin-card space-y-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-2">Order Details</p>
+                    {[
+                        ['Order ID', order.id?.slice(-12).toUpperCase()],
+                        ['Total', formatPrice(order.totalAmount)],
+                        ['Payment Method', order.paymentMethod?.toUpperCase() || '—'],
+                        ['Payment Status', order.paymentStatus?.toUpperCase() || '—'],
+                        ['Date', fmtDate(order.createdAt)],
+                        ...(order.paymentReference ? [['Paystack Ref', order.paymentReference]] : []),
+                        ...(order.userId ? [['Customer ID', order.userId]] : []),
+                        ...(order.notes ? [['Notes', order.notes]] : []),
+                    ].map(([label, val]) => (
+                        <div key={label} className="flex justify-between items-start gap-4 text-sm">
+                            <span className="text-gray-500 shrink-0">{label}</span>
+                            <span className="font-medium text-gray-900 text-right break-all">{val}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Customer info */}
+                <div className="admin-card space-y-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-2">Customer</p>
+                    {[
+                        ['Name', order.customerName || '—'],
+                        ['Email', order.customerEmail || '—'],
+                        ['Phone', order.customerPhone || '—'],
+                        ['Address', order.customerAddress || '—'],
+                    ].map(([label, val]) => (
+                        <div key={label} className="flex justify-between items-start gap-4 text-sm">
+                            <span className="text-gray-500 shrink-0">{label}</span>
+                            <span className="font-medium text-gray-900 text-right">{val}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Update status */}
+            <div className="admin-card space-y-4">
+                <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-2">Update Status</p>
+                <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Order Status</label>
-                        <select
-                            value={status}
-                            onChange={e => setStatus(e.target.value as Order['status'])}
-                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                        >
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="shipped">Shipped</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
+                        <label className="admin-label">Order Status</label>
+                        <select value={status} onChange={e => setStatus(e.target.value as Order['status'])} className="admin-input">
+                            {STATUS_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
                         </select>
                     </div>
                     <div>
-                        <label style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>Payment Status</label>
-                        <select
-                            value={paymentStatus}
-                            onChange={e => setPaymentStatus(e.target.value as Order['paymentStatus'])}
-                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #e0e0e0', fontSize: 14 }}
-                        >
+                        <label className="admin-label">Payment Status</label>
+                        <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value as Order['paymentStatus'])} className="admin-input">
                             <option value="unpaid">Unpaid</option>
                             <option value="paid">Paid</option>
                             <option value="refunded">Refunded</option>
                         </select>
                     </div>
                 </div>
-                <button
-                    onClick={updateOrderHandler}
-                    disabled={updating}
-                    style={{ marginTop: 16, padding: '10px 24px', background: '#0a0a0a', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
-                >
-                    {updating ? 'Updating...' : 'Update Status'}
+
+                {/* Notification toggle */}
+                <label className={`flex items-center gap-2 text-sm cursor-pointer ${!order.userId ? "opacity-40" : ""}`}>
+                    <input
+                        type="checkbox"
+                        checked={sendNotif}
+                        onChange={e => setSendNotif(e.target.checked)}
+                        disabled={!order.userId}
+                    />
+                    <MdNotifications size={15} className="text-gray-500" />
+                    Notify customer about this status change
+                    {!order.userId && <span className="text-xs text-gray-400">(guest order — no account)</span>}
+                </label>
+
+                <button onClick={handleUpdate} disabled={updating} className="btn-primary px-6 py-2">
+                    {updating ? 'Updating…' : 'Update Order'}
                 </button>
             </div>
 
-            {/* Order Items */}
-            <div style={{ background: '#fff', border: '1px solid #e0e0e0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 100px', gap: 16, padding: '16px', borderBottom: '1px solid #e0e0e0', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#666' }}>
-                    <div>Product</div>
-                    <div>Size</div>
-                    <div>Color</div>
-                    <div>Qty</div>
-                    <div>Price</div>
-                    <div>Total</div>
+            {/* Order items */}
+            <div className="admin-card p-0 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Order Items ({order.items?.length || 0})</p>
                 </div>
-
-                {order.items.map((item, idx) => (
-                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 100px', gap: 16, padding: '20px 16px', borderBottom: '1px solid #e0e0e0', alignItems: 'center' }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{item.productName}</div>
-                        <div style={{ fontSize: 13 }}>{item.size}</div>
-                        <div style={{ fontSize: 13 }}>{item.color}</div>
-                        <div style={{ fontSize: 13 }}>{item.quantity}</div>
-                        <div style={{ fontSize: 13 }}>{formatPrice(item.productPrice)}</div>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{formatPrice(item.subtotal)}</div>
-                    </div>
-                ))}
-
-                {/* Totals */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '20px 16px', background: '#f9f9f9' }}>
-                    <div style={{ display: 'flex', gap: 24, fontSize: 14 }}>
-                        <span>Subtotal:</span>
-                        <span style={{ fontWeight: 600 }}>{formatPrice(order.totalAmount)}</span>
+                <table className="admin-table">
+                    <thead>
+                        <tr><th>Product</th><th>Size</th><th>Color</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr>
+                    </thead>
+                    <tbody>
+                        {(order.items || []).map((item, i) => (
+                            <tr key={i}>
+                                <td className="font-medium text-gray-800">{item.productName}</td>
+                                <td className="text-gray-500 text-sm">{item.size || '—'}</td>
+                                <td className="text-gray-500 text-sm">{item.color || '—'}</td>
+                                <td className="text-gray-800 text-sm">{item.quantity}</td>
+                                <td className="text-gray-800 text-sm">{formatPrice(item.productPrice)}</td>
+                                <td className="font-bold text-gray-900">{formatPrice(item.subtotal)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <div className="flex justify-end px-5 py-3 border-t border-gray-100 bg-gray-50">
+                    <div className="text-sm">
+                        <span className="text-gray-500 mr-4">Total</span>
+                        <span className="font-bold text-lg text-gray-900">{formatPrice(order.totalAmount)}</span>
                     </div>
                 </div>
             </div>

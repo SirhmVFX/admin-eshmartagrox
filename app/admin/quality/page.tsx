@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getQualityBlocks, createQualityBlock, updateQualityBlock, deleteQualityBlock, QualityBlock } from "@/lib/firestore";
+import { getQualityBlocks, createQualityBlock, updateQualityBlock, deleteQualityBlock, QualityBlock, getQualitySection, saveQualitySection, QualitySection } from "@/lib/firestore";
 import { getCTA, saveCTA } from "@/lib/firestore";
 import ImageUpload from "@/components/ImageUpload";
 import { MdEdit, MdClose } from "react-icons/md";
@@ -10,25 +10,37 @@ import { MdEdit, MdClose } from "react-icons/md";
 export default function QualityPage() {
     const [blocks, setBlocks] = useState<QualityBlock[]>([]);
     const [cta, setCta] = useState<any>(null);
+    const [section, setSection] = useState<QualitySection>({ heading: "", mainImage: "", secondaryImage: "" });
     const [loading, setLoading] = useState(true);
     const [showBlocksModal, setShowBlocksModal] = useState(false);
     const [showCTAModal, setShowCTAModal] = useState(false);
+    const [showSectionModal, setShowSectionModal] = useState(false);
     const [editingBlock, setEditingBlock] = useState<QualityBlock | null>(null);
     const [blockForm, setBlockForm] = useState({ title: "", description: "", order: 0, active: true });
     const [ctaForm, setCtaForm] = useState({ title: "", description: "", contactImage: "", secondaryTitle: "", secondaryDescription: "" });
+    const [sectionForm, setSectionForm] = useState({ heading: "", mainImage: "", secondaryImage: "" });
     const [savingBlock, setSavingBlock] = useState(false);
     const [savingCTA, setSavingCTA] = useState(false);
+    const [savingSection, setSavingSection] = useState(false);
     const [error, setError] = useState("");
 
     async function load() {
         setLoading(true);
-        const [b, c] = await Promise.all([getQualityBlocks(), getCTA()]);
+        const [b, c, s] = await Promise.all([getQualityBlocks(), getCTA(), getQualitySection()]);
         setBlocks(b);
         setCta(c);
         if (c) setCtaForm(c);
+        if (s) { setSection(s); setSectionForm({ heading: s.heading, mainImage: s.mainImage, secondaryImage: s.secondaryImage }); }
         setLoading(false);
     }
     useEffect(() => { load(); }, []);
+
+    async function handleSaveSection() {
+        setSavingSection(true); setError("");
+        try { await saveQualitySection(sectionForm); setShowSectionModal(false); await load(); }
+        catch (e) { setError(e instanceof Error ? e.message : "Failed."); }
+        finally { setSavingSection(false); }
+    }
 
     async function handleSaveBlock() {
         if (!blockForm.title) { setError("Title is required."); return; }
@@ -60,6 +72,24 @@ export default function QualityPage() {
 
     return (
         <div className="space-y-6 max-w-5xl">
+            {/* Quality Section Header */}
+            <div className="admin-card">
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h1 className="text-lg font-semibold text-gray-900">Quality Section Header</h1>
+                        <p className="text-xs text-gray-500 mt-0.5">Heading and images for the "Cultivation & Quality" section</p>
+                    </div>
+                    <button className="btn-primary py-2 px-4 text-sm" onClick={() => setShowSectionModal(true)}>Edit</button>
+                </div>
+                {loading ? <p className="text-sm text-gray-500">Loading…</p> : (
+                    <div className="space-y-2">
+                        <p className="text-sm"><span className="font-medium">Heading:</span> {section.heading || <span className="text-gray-400 italic">Not set — using default</span>}</p>
+                        <p className="text-sm"><span className="font-medium">Main Image:</span> {section.mainImage ? <a href={section.mainImage} target="_blank" className="text-blue-600 underline text-xs truncate inline-block max-w-xs">View</a> : <span className="text-gray-400 italic">Using /assets/8.jpg</span>}</p>
+                        <p className="text-sm"><span className="font-medium">Secondary Image:</span> {section.secondaryImage ? <a href={section.secondaryImage} target="_blank" className="text-blue-600 underline text-xs">View</a> : <span className="text-gray-400 italic">Using /assets/9.jpg</span>}</p>
+                    </div>
+                )}
+            </div>
+
             {/* Blocks Section */}
             <div className="admin-card">
                 <div className="flex justify-between items-center mb-4"><h1 className="text-lg font-semibold text-gray-900">Quality Blocks</h1><button className="btn-primary py-2 px-4 text-sm" onClick={openNewBlock}>+ Add Block</button></div>
@@ -109,6 +139,18 @@ export default function QualityPage() {
                         <div><label className="admin-label">Secondary Title</label><input className="admin-input" value={ctaForm.secondaryTitle} onChange={(e) => setCtaForm({ ...ctaForm, secondaryTitle: e.target.value })} /></div>
                         <div><label className="admin-label">Secondary Description</label><textarea className="admin-input" rows={3} value={ctaForm.secondaryDescription} onChange={(e) => setCtaForm({ ...ctaForm, secondaryDescription: e.target.value })} /></div>
                         <div className="flex gap-3 pt-2"><button className="btn-primary flex-1" onClick={handleSaveCTA} disabled={savingCTA}>{savingCTA ? "Saving…" : "Save CTA"}</button><button className="btn-secondary" onClick={() => setShowCTAModal(false)}>Cancel</button></div>
+                    </div></div></div>
+            )}
+
+            {/* Section Modal */}
+            {showSectionModal && (
+                <div className="modal-overlay"><div className="modal-box"><div className="modal-header"><h2 className="text-base font-semibold">Edit Quality Section Header</h2><button onClick={() => setShowSectionModal(false)}><MdClose size={20} /></button></div>
+                    <div className="p-5 space-y-4">
+                        {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2">{error}</p>}
+                        <div><label className="admin-label">Section Heading</label><textarea className="admin-input" rows={2} value={sectionForm.heading} onChange={(e) => setSectionForm({ ...sectionForm, heading: e.target.value })} placeholder="Meticulous Cultivation and Export Grade Quality Systems" /></div>
+                        <ImageUpload value={sectionForm.mainImage} onChange={(url) => setSectionForm({ ...sectionForm, mainImage: url })} label="Main Image (left column)" />
+                        <ImageUpload value={sectionForm.secondaryImage} onChange={(url) => setSectionForm({ ...sectionForm, secondaryImage: url })} label="Secondary Image (bottom right)" />
+                        <div className="flex gap-3 pt-2"><button className="btn-primary flex-1" onClick={handleSaveSection} disabled={savingSection}>{savingSection ? "Saving…" : "Save"}</button><button className="btn-secondary" onClick={() => setShowSectionModal(false)}>Cancel</button></div>
                     </div></div></div>
             )}
         </div>

@@ -4,207 +4,220 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getOrders, updateOrder, deleteOrder, Order, getOrderStats } from '@/lib/firestore';
 import { formatPrice } from '@/lib/products';
+import { MdRefresh } from 'react-icons/md';
+
+const STATUS_FILTERS = ['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+type Filter = typeof STATUS_FILTERS[number];
+
+const STATUS_BADGE: Record<Order['status'], string> = {
+    received: 'badge-blue',
+    pending: 'badge-yellow',
+    processing: 'badge-blue',
+    shipped: 'badge-blue',
+    out_for_delivery: 'badge-blue',
+    delivered: 'badge-green',
+    cancelled: 'badge-red',
+};
+
+const STATUS_LABELS: Record<Order['status'], string> = {
+    received: 'Received',
+    pending: 'Pending',
+    processing: 'Processing',
+    shipped: 'Shipped',
+    out_for_delivery: 'Out for Delivery',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+};
+
+function fmtDate(val: any): string {
+    if (!val) return '—';
+    try {
+        if (typeof val === 'string') return new Date(val).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+        if (typeof val?.toMillis === 'function') return new Date(val.toMillis()).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { }
+    return '—';
+}
 
 export default function OrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ total: 0, pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 });
-    const [filter, setFilter] = useState<'all' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'>('all');
+    const [filter, setFilter] = useState<Filter>('all');
 
-    async function loadOrders() {
+    async function load() {
+        setLoading(true);
         try {
-            const data = await getOrders();
+            const [data, s] = await Promise.all([getOrders(), getOrderStats()]);
             setOrders(data);
+            setStats(s);
         } catch (e) {
-            console.error('Failed to load orders:', e);
+            console.error(e);
         } finally {
             setLoading(false);
         }
     }
 
-    async function loadStats() {
-        try {
-            const s = await getOrderStats();
-            setStats(s);
-        } catch (e) {
-            console.error('Failed to load stats:', e);
-        }
-    }
+    useEffect(() => { load(); }, []);
 
-    useEffect(() => { loadOrders(); loadStats(); }, []);
-
-    async function updateOrderStatus(id: string, newStatus: Order['status']) {
+    async function handleStatusChange(id: string, newStatus: Order['status']) {
         try {
             await updateOrder(id, { status: newStatus });
-            setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
-        } catch (e) {
-            alert('Failed to update order status');
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+        } catch {
+            alert('Failed to update order status.');
         }
     }
 
-    async function deleteOrderHandler(id: string) {
-        if (!confirm('Are you sure you want to delete this order?')) return;
+    async function handleDelete(id: string) {
+        if (!confirm('Delete this order? This cannot be undone.')) return;
         try {
             await deleteOrder(id);
-            setOrders(orders.filter(o => o.id !== id));
-        } catch (e) {
-            alert('Failed to delete order');
+            setOrders(prev => prev.filter(o => o.id !== id));
+        } catch {
+            alert('Failed to delete order.');
         }
     }
 
-    const filteredOrders = filter === 'all'
-        ? orders
-        : orders.filter(o => o.status === filter);
+    const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
-    const getStatusColor = (status: Order['status']) => {
-        switch (status) {
-            case 'pending': return '#ff9800';
-            case 'processing': return '#2196f3';
-            case 'shipped': return '#9c27b0';
-            case 'delivered': return '#4caf50';
-            case 'cancelled': return '#f44336';
-            default: return '#888';
-        }
-    };
-
-    if (loading) {
-        return <div style={{ padding: 40 }}>Loading orders...</div>;
-    }
-
-    const statusLabels: Record<Order['status'], string> = {
-        pending: 'Pending',
-        processing: 'Processing',
-        shipped: 'Shipped',
-        delivered: 'Delivered',
-        cancelled: 'Cancelled',
-    };
+    const STAT_CARDS = [
+        { label: 'Total', value: stats.total, cls: 'text-gray-900' },
+        { label: 'Pending', value: stats.pending, cls: 'text-yellow-600' },
+        { label: 'Processing', value: stats.processing, cls: 'text-blue-600' },
+        { label: 'Shipped', value: stats.shipped, cls: 'text-purple-600' },
+        { label: 'Delivered', value: stats.delivered, cls: 'text-green-700' },
+        { label: 'Cancelled', value: stats.cancelled, cls: 'text-red-600' },
+    ];
 
     return (
-        <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <div className="max-w-6xl space-y-4">
+            {/* Header */}
+            <div className="section-header">
                 <div>
-                    <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Orders</h1>
-                    <p style={{ color: '#666' }}>Manage customer orders</p>
+                    <h1 className="text-lg font-semibold text-gray-900">Orders</h1>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage and track customer orders</p>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 900 }}>{stats.total}</div>
-                    <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase' }}>Total Orders</div>
-                </div>
+                <button className="btn-secondary flex items-center gap-1.5 py-1.5 text-xs" onClick={load} disabled={loading}>
+                    <MdRefresh size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+                </button>
             </div>
 
-            {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 32 }}>
-                {[
-                    { label: 'Total', value: stats.total, color: '#0a0a0a' },
-                    { label: 'Pending', value: stats.pending, color: '#ff9800' },
-                    { label: 'Processing', value: stats.processing, color: '#2196f3' },
-                    { label: 'Shipped', value: stats.shipped, color: '#9c27b0' },
-                    { label: 'Delivered', value: stats.delivered, color: '#4caf50' },
-                    { label: 'Cancelled', value: stats.cancelled, color: '#f44336' },
-                ].map((stat, i) => (
-                    <div key={i} style={{ background: '#f5f5f5', padding: 16, borderRadius: 0, textAlign: 'center' }}>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: stat.color }}>{stat.value}</div>
-                        <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>{stat.label}</div>
+            {/* Stat cards */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                {STAT_CARDS.map(({ label, value, cls }) => (
+                    <div key={label} className="stat-card text-center py-4">
+                        <p className={`text-2xl font-bold ${cls}`}>{value}</p>
+                        <p className="text-xs text-gray-500 mt-1">{label}</p>
                     </div>
                 ))}
             </div>
 
-            {/* Filter Tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-                {(['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'] as const).map((f) => (
+            {/* Filter tabs */}
+            <div className="flex flex-wrap gap-1 border-b border-gray-200">
+                {STATUS_FILTERS.map(f => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
-                        style={{
-                            padding: '8px 16px',
-                            background: filter === f ? '#0a0a0a' : '#f5f5f5',
-                            color: filter === f ? '#fff' : '#0a0a0a',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: filter === f ? 700 : 600,
-                        }}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${filter === f
+                            ? 'border-green-700 text-green-700'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
                     >
-                        {f === 'all' ? 'All Orders' : statusLabels[f]}
+                        {f === 'all' ? `All (${orders.length})` : `${STATUS_LABELS[f as Order['status']]} (${orders.filter(o => o.status === f).length})`}
                     </button>
                 ))}
             </div>
 
-            {/* Orders List */}
-            <div style={{ background: '#fff', border: '1px solid #e0e0e0' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 16, padding: '16px', borderBottom: '1px solid #e0e0e0', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#666' }}>
-                    <div>Order Details</div>
-                    <div>Customer</div>
-                    <div>Total</div>
-                    <div>Status</div>
-                    <div>Payment</div>
-                    <div>Action</div>
+            {/* Table */}
+            {loading ? (
+                <div className="admin-card text-sm text-gray-500 text-center py-12">Loading orders…</div>
+            ) : filtered.length === 0 ? (
+                <div className="admin-card text-sm text-gray-400 text-center py-12">
+                    {filter === 'all' ? 'No orders yet.' : `No ${filter} orders.`}
                 </div>
-
-                {filteredOrders.length === 0 ? (
-                    <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>No orders found</div>
-                ) : (
-                    filteredOrders.map((order) => (
-                        <div key={order.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 100px', gap: 16, padding: '20px 16px', borderBottom: '1px solid #e0e0e0', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
-                                    <Link href={`/admin/orders/${order.id}`} style={{ textDecoration: 'none', color: '#0a0a0a' }}>
-                                        #{order.id?.slice(-6)}
-                                    </Link>
-                                </div>
-                                <div style={{ fontSize: 11, color: '#666' }}>
-                                    {order.items.length} items • {order.items.reduce((sum, i) => sum + i.quantity, 0)} units
-                                </div>
-                                <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>
-                                    {order.createdAt ? new Date(order.createdAt.toMillis()).toLocaleDateString() : 'N/A'}
-                                </div>
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 13, fontWeight: 700 }}>{order.customerName}</div>
-                                <div style={{ fontSize: 11, color: '#666' }}>{order.customerEmail}</div>
-                                <div style={{ fontSize: 11, color: '#666' }}>{order.customerPhone}</div>
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 900 }}>{formatPrice(order.totalAmount)}</div>
-                            <div>
-                                <span style={{
-                                    display: 'inline-block',
-                                    padding: '4px 10px',
-                                    background: getStatusColor(order.status),
-                                    color: '#fff',
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    borderRadius: 0,
-                                }}>
-                                    {statusLabels[order.status]}
-                                </span>
-                            </div>
-                            <div>
-                                <span style={{
-                                    display: 'inline-block',
-                                    padding: '4px 10px',
-                                    background: order.paymentStatus === 'paid' ? '#4caf50' : '#ff9800',
-                                    color: '#fff',
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    borderRadius: 0,
-                                }}>
-                                    {order.paymentStatus.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                                <Link href={`/admin/orders/${order.id}`}>
-                                    <button style={{ padding: '8px 12px', background: '#f0f0f0', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>View</button>
-                                </Link>
-                                <button
-                                    onClick={() => deleteOrderHandler(order.id!)}
-                                    style={{ padding: '8px 12px', background: '#fff', border: '1px solid #ff4444', color: '#ff4444', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+            ) : (
+                <div className="admin-card p-0 overflow-hidden overflow-x-auto">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map(order => (
+                                <tr key={order.id}>
+                                    {/* Order ID */}
+                                    <td>
+                                        <Link
+                                            href={`/admin/orders/${order.id}`}
+                                            className="font-mono font-bold text-green-700 hover:underline text-sm"
+                                        >
+                                            #{order.id?.slice(-6).toUpperCase()}
+                                        </Link>
+                                    </td>
+                                    {/* Customer */}
+                                    <td>
+                                        <p className="font-medium text-gray-800 text-sm">{order.customerName || '—'}</p>
+                                        <p className="text-xs text-gray-400">{order.customerEmail}</p>
+                                    </td>
+                                    {/* Items count */}
+                                    <td className="text-sm text-gray-600">
+                                        {order.items?.length ?? 0} item{order.items?.length !== 1 ? 's' : ''}
+                                        <span className="text-gray-400 ml-1">
+                                            · {order.items?.reduce((s, i) => s + i.quantity, 0) ?? 0} units
+                                        </span>
+                                    </td>
+                                    {/* Total */}
+                                    <td className="font-bold text-gray-900 text-sm">{formatPrice(order.totalAmount)}</td>
+                                    {/* Order status */}
+                                    <td>
+                                        <select
+                                            value={order.status}
+                                            onChange={e => handleStatusChange(order.id!, e.target.value as Order['status'])}
+                                            className="text-xs border border-gray-200 px-2 py-1 bg-white text-gray-700 cursor-pointer focus:outline-none focus:border-green-700"
+                                        >
+                                            {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                                                <option key={val} value={val}>{label}</option>
+                                            ))}
+                                        </select>                                    </td>
+                                    {/* Payment status */}
+                                    <td>
+                                        <span className={`badge ${order.paymentStatus === 'paid' ? 'badge-green' : order.paymentStatus === 'refunded' ? 'badge-blue' : 'badge-yellow'}`}>
+                                            {order.paymentStatus?.toUpperCase() ?? 'UNPAID'}
+                                        </span>
+                                    </td>
+                                    {/* Date */}
+                                    <td className="text-xs text-gray-500 whitespace-nowrap">{fmtDate(order.createdAt)}</td>
+                                    {/* Actions */}
+                                    <td>
+                                        <div className="flex gap-2">
+                                            <Link href={`/admin/orders/${order.id}`}>
+                                                <button className="btn-secondary py-1 px-2 text-xs">View</button>
+                                            </Link>
+                                            <button
+                                                className="btn-danger py-1 px-2 text-xs"
+                                                onClick={() => handleDelete(order.id!)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
+                        Showing {filtered.length} of {orders.length} orders
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

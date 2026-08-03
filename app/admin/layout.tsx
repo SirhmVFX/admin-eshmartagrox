@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import {
     MdDashboard, MdSlideshow, MdImage, MdArticle, MdBook, MdPeople, MdContactMail, MdSettings,
     MdMenu, MdClose, MdLogout, MdStar, MdOutlineStore, MdEditAttributes, MdContactPhone,
+    MdLocalOffer, MdMail, MdAdminPanelSettings, MdCurrencyExchange,
 } from "react-icons/md";
 
 const navSections = [
@@ -16,14 +17,15 @@ const navSections = [
             { href: "/admin/products", label: "Products", icon: MdOutlineStore },
             { href: "/admin/orders", label: "Orders", icon: MdBook },
             { href: "/admin/users", label: "Customers", icon: MdPeople },
+            { href: "/admin/coupons", label: "Coupons", icon: MdLocalOffer },
+            { href: "/admin/currency-rates", label: "Currency Rates", icon: MdCurrencyExchange },
         ]
     },
     {
         label: "Content", items: [
             { href: "/admin/hero", label: "Hero Slides", icon: MdSlideshow },
             { href: "/admin/produce", label: "Produce Cards", icon: MdImage },
-            { href: "/admin/quality", label: "Quality Blocks", icon: MdImage },
-            { href: "/admin/cta", label: "Call to Action", icon: MdContactMail },
+            { href: "/admin/quality", label: "Quality & CTA", icon: MdImage },
             { href: "/admin/portfolio", label: "Portfolio", icon: MdStar },
             { href: "/admin/services", label: "Services", icon: MdBook },
             { href: "/admin/blog", label: "Blog", icon: MdArticle },
@@ -36,6 +38,13 @@ const navSections = [
             { href: "/admin/team", label: "Team", icon: MdPeople },
             { href: "/admin/testimonials", label: "Testimonials", icon: MdStar },
             { href: "/admin/faqs", label: "FAQs", icon: MdContactPhone },
+            { href: "/admin/cta", label: "Call to Action", icon: MdContactMail },
+            { href: "/admin/messages", label: "Messages", icon: MdMail },
+        ]
+    },
+    {
+        label: "Admin", items: [
+            { href: "/admin/staff", label: "Staff Management", icon: MdAdminPanelSettings },
         ]
     },
 ];
@@ -108,7 +117,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div className="hidden lg:block"><p className="text-sm font-semibold text-gray-700 capitalize">{pathname.replace("/admin/", "").replace("/admin", "Dashboard") || "Dashboard"}</p></div>
                     <div className="flex items-center gap-3 ml-auto">
                         <span className="text-xs text-gray-500 hidden sm:block">{user.email}</span>
-                        {adminUser?.role && <span className="badge badge-blue">{adminUser.role.replace("_", " ")}</span>}
+                        {adminUser?.roleId && <span className="badge badge-blue">{adminUser.roleId.replace("_", " ")}</span>}
                     </div>
                 </header>
                 <main className="flex-1 p-4 md:p-6">{children}</main>
