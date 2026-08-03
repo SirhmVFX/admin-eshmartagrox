@@ -47,7 +47,7 @@ export default function DashboardPage() {
                     testimonials: testiSnap.size,
                     team: teamSnap.size,
                     revenue,
-                    pendingOrders: orderStats.pending,
+                    pendingOrders: orderStats.received + orderStats.pending,
                 });
             } catch (e) {
                 console.error(e);
@@ -62,8 +62,7 @@ export default function DashboardPage() {
         { label: "Products", value: stats.products, icon: MdShoppingBag, href: "/admin/products", color: "bg-blue-50 text-blue-700" },
         { label: "Orders", value: stats.orders, icon: MdBook, href: "/admin/orders", color: "bg-purple-50 text-purple-700" },
         { label: "Customers", value: stats.users, icon: MdPeople, href: "/admin/users", color: "bg-green-50 text-green-700" },
-        { label: "Pending Orders", value: stats.pendingOrders, icon: MdBarChart, href: "/admin/orders", color: "bg-orange-50 text-orange-700" },
-        { label: "Blog Posts", value: stats.blog, icon: MdArticle, href: "/admin/blog", color: "bg-yellow-50 text-yellow-700" },
+        { label: "Pending Orders", value: stats.pendingOrders, icon: MdBarChart, href: "/admin/orders", color: "bg-orange-50 text-orange-700" }, { label: "Blog Posts", value: stats.blog, icon: MdArticle, href: "/admin/blog", color: "bg-yellow-50 text-yellow-700" },
         { label: "Testimonials", value: stats.testimonials, icon: MdStar, href: "/admin/testimonials", color: "bg-pink-50 text-pink-700" },
     ] : [];
 

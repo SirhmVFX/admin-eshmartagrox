@@ -6,7 +6,7 @@ import { getOrders, updateOrder, deleteOrder, Order, getOrderStats } from '@/lib
 import { formatPrice } from '@/lib/products';
 import { MdRefresh } from 'react-icons/md';
 
-const STATUS_FILTERS = ['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+const STATUS_FILTERS = ['all', 'received', 'pending', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'] as const;
 type Filter = typeof STATUS_FILTERS[number];
 
 const STATUS_BADGE: Record<Order['status'], string> = {
@@ -82,9 +82,9 @@ export default function OrdersPage() {
 
     const STAT_CARDS = [
         { label: 'Total', value: stats.total, cls: 'text-gray-900' },
+        { label: 'New', value: (orders.filter(o => o.status === 'received').length), cls: 'text-blue-600' },
         { label: 'Pending', value: stats.pending, cls: 'text-yellow-600' },
         { label: 'Processing', value: stats.processing, cls: 'text-blue-600' },
-        { label: 'Shipped', value: stats.shipped, cls: 'text-purple-600' },
         { label: 'Delivered', value: stats.delivered, cls: 'text-green-700' },
         { label: 'Cancelled', value: stats.cancelled, cls: 'text-red-600' },
     ];

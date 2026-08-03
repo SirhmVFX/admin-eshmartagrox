@@ -437,19 +437,23 @@ export const updateOrder = (id: string, data: Partial<Order>) => update<Order>("
 export const deleteOrder = (id: string) => remove("orders", id);
 
 export const getOrderStats = async () => {
-    const [all, pending, processing, shipped, delivered, cancelled] = await Promise.all([
+    const [all, received, pending, processing, shipped, out_for_delivery, delivered, cancelled] = await Promise.all([
         getDocs(collection(db, "orders")),
+        getDocs(query(collection(db, "orders"), where("status", "==", "received"))),
         getDocs(query(collection(db, "orders"), where("status", "==", "pending"))),
         getDocs(query(collection(db, "orders"), where("status", "==", "processing"))),
         getDocs(query(collection(db, "orders"), where("status", "==", "shipped"))),
+        getDocs(query(collection(db, "orders"), where("status", "==", "out_for_delivery"))),
         getDocs(query(collection(db, "orders"), where("status", "==", "delivered"))),
         getDocs(query(collection(db, "orders"), where("status", "==", "cancelled"))),
     ]);
     return {
         total: all.size,
+        received: received.size,
         pending: pending.size,
         processing: processing.size,
         shipped: shipped.size,
+        out_for_delivery: out_for_delivery.size,
         delivered: delivered.size,
         cancelled: cancelled.size,
     };
