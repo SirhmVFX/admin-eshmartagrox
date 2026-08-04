@@ -146,17 +146,20 @@ export default function DashboardPage() {
                     <tbody>
                         {[
                             { name: "Hero Slides", desc: "Homepage hero slideshow — images, headlines, CTAs", href: "/admin/hero" },
-                            { name: "Produce Cards", desc: "Homepage 'Our Produce' section — cards with image, title, description", href: "/admin/produce" },
+                            { name: "Produce Cards", desc: "Homepage 'Our Produce' section heading + cards", href: "/admin/produce" },
+                            { name: "Packages", desc: "Subscription packages shown on homepage and shop", href: "/admin/packages" },
+                            { name: "Box Items", desc: "Build-Your-Own Box grocery items and prices", href: "/admin/box-items" },
+                            { name: "Consultations", desc: "Nutrition consultation pricing tiers", href: "/admin/consultations" },
                             { name: "Quality Blocks", desc: "Homepage quality section — heading, images, and text blocks", href: "/admin/quality" },
                             { name: "Call to Action", desc: "Homepage CTA banner — title, description, contact image", href: "/admin/cta" },
-                            { name: "Portfolio", desc: "Portfolio page items — image, title, description, link", href: "/admin/portfolio" },
+                            { name: "Portfolio", desc: "Portfolio page items — image, title, description, link, gallery", href: "/admin/portfolio" },
                             { name: "Services", desc: "Book Online page — service cards with pricing and booking link", href: "/admin/services" },
                             { name: "Blog", desc: "Blog posts — full WYSIWYG editor, cover image, author, tags", href: "/admin/blog" },
                             { name: "Navigation", desc: "Header navigation links — label, href, order, visibility", href: "/admin/navigation" },
                             { name: "Testimonials", desc: "Customer testimonials — name, location, review, rating, image", href: "/admin/testimonials" },
                             { name: "Team", desc: "Team members — name, role, bio, image", href: "/admin/team" },
                             { name: "FAQs", desc: "Frequently asked questions — question, answer, visibility", href: "/admin/faqs" },
-                            { name: "Settings", desc: "Site name, tagline, logo, contact info, currency, feature toggles", href: "/admin/settings" },
+                            { name: "Settings", desc: "Site name, tagline, logo, contact info, shop banner, toggles", href: "/admin/settings" },
                         ].map((row) => (
                             <tr key={row.name}><td className="font-semibold text-gray-800">{row.name}</td><td className="text-gray-500">{row.desc}</td><td><Link href={row.href} className="text-green-700 text-xs font-semibold hover:underline">Manage →</Link></td></tr>
                         ))}

@@ -5,9 +5,9 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import {
-    MdDashboard, MdSlideshow, MdImage, MdArticle, MdBook, MdPeople, MdContactMail, MdSettings,
-    MdMenu, MdClose, MdLogout, MdStar, MdOutlineStore, MdEditAttributes, MdContactPhone,
-    MdLocalOffer, MdMail, MdAdminPanelSettings, MdCurrencyExchange,
+    MdDashboard, MdImage, MdArticle, MdBook, MdPeople, MdContactMail, MdSettings,
+    MdMenu, MdClose, MdLogout, MdStar, MdOutlineStore, MdContactPhone,
+    MdLocalOffer, MdMail, MdAdminPanelSettings, MdCurrencyExchange, MdPublic, MdInventory,
 } from "react-icons/md";
 
 const navSections = [
@@ -19,16 +19,23 @@ const navSections = [
             { href: "/admin/users", label: "Customers", icon: MdPeople },
             { href: "/admin/coupons", label: "Coupons", icon: MdLocalOffer },
             { href: "/admin/currency-rates", label: "Currency Rates", icon: MdCurrencyExchange },
+            { href: "/admin/packages", label: "Subscription Packages", icon: MdOutlineStore },
+            { href: "/admin/box-items", label: "Box Builder Items", icon: MdInventory },
+            { href: "/admin/consultations", label: "Consultation Tiers", icon: MdContactPhone },
+        ]
+    },
+    {
+        label: "International Export", items: [
+            { href: "/admin/export-commodities", label: "Commodities", icon: MdPublic },
+            { href: "/admin/export-quotes", label: "Quote Requests", icon: MdInventory },
         ]
     },
     {
         label: "Content", items: [
-            { href: "/admin/hero", label: "Hero Slides", icon: MdSlideshow },
-            { href: "/admin/produce", label: "Produce Cards", icon: MdImage },
-            { href: "/admin/quality", label: "Quality & CTA", icon: MdImage },
+            { href: "/admin/blog", label: "Blog", icon: MdArticle },
             { href: "/admin/portfolio", label: "Portfolio", icon: MdStar },
             { href: "/admin/services", label: "Services", icon: MdBook },
-            { href: "/admin/blog", label: "Blog", icon: MdArticle },
+            { href: "/admin/food-library", label: "Food Library", icon: MdImage },
         ]
     },
     {

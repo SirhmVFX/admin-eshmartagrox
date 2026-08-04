@@ -721,3 +721,300 @@ export async function createOrderNotification(
         createdAt: serverTimestamp(),
     });
 }
+
+// ── Export Commodities ─────────────────────────────────────────────────────
+
+export interface ExportCommodity {
+    id?: string;
+    name: string;
+    spec: string;
+    priceMin: number;
+    priceMax: number;
+    moq: string;
+    catalogType: "raw" | "processed";
+    image?: string;
+    active: boolean;
+    order: number;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getExportCommodities = () => getAll<ExportCommodity>("exportCommodities");
+export const createExportCommodity = (data: Omit<ExportCommodity, "id">) => create<ExportCommodity>("exportCommodities", data);
+export const updateExportCommodity = (id: string, data: Partial<ExportCommodity>) => update<ExportCommodity>("exportCommodities", id, data);
+export const deleteExportCommodity = (id: string) => remove("exportCommodities", id);
+
+// ── Export Quote Requests ──────────────────────────────────────────────────
+
+export interface ExportQuoteRequest {
+    id?: string;
+    name: string;
+    company?: string;
+    email: string;
+    phone?: string;
+    commodity: string;
+    quantity: string;
+    destination: string;
+    message?: string;
+    status: "new" | "contacted" | "closed";
+    createdAt?: Timestamp | string;
+}
+
+export const getExportQuotes = () => getAll<ExportQuoteRequest>("exportQuotes");
+export const updateExportQuote = (id: string, data: Partial<ExportQuoteRequest>) => update<ExportQuoteRequest>("exportQuotes", id, data);
+export const deleteExportQuote = (id: string) => remove("exportQuotes", id);
+
+// ── Subscription Packages ──────────────────────────────────────────────────
+
+export interface SubscriptionPackage {
+    id?: string;
+    name: string;
+    tag: string;
+    tagColor: "green" | "orange";   // green = #14532d, orange = #f97316
+    description: string;
+    price: number;                  // in NGN
+    period: string;                 // e.g. "/ week"
+    items: string[];                // checklist items
+    active: boolean;
+    order: number;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getSubscriptionPackages = () => getAll<SubscriptionPackage>("subscriptionPackages");
+export const createSubscriptionPackage = (data: Omit<SubscriptionPackage, "id">) => create<SubscriptionPackage>("subscriptionPackages", data);
+export const updateSubscriptionPackage = (id: string, data: Partial<SubscriptionPackage>) => update<SubscriptionPackage>("subscriptionPackages", id, data);
+export const deleteSubscriptionPackage = (id: string) => remove("subscriptionPackages", id);
+
+// ── Box Items ──────────────────────────────────────────────────────────────
+
+export interface BoxItem {
+    id?: string;
+    name: string;
+    price: number;
+    active: boolean;
+    order: number;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getBoxItems = () => getAll<BoxItem>("boxItems");
+export const createBoxItem = (data: Omit<BoxItem, "id">) => create<BoxItem>("boxItems", data);
+export const updateBoxItem = (id: string, data: Partial<BoxItem>) => update<BoxItem>("boxItems", id, data);
+export const deleteBoxItem = (id: string) => remove("boxItems", id);
+
+// ── Consultation Tiers ─────────────────────────────────────────────────────
+
+export interface ConsultationTier {
+    id?: string;
+    icon: string;           // emoji
+    title: string;          // e.g. "Basic · 15 min"
+    subtitle: string;       // e.g. "Phone call"
+    price: number;          // NGN
+    active: boolean;
+    order: number;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getConsultationTiers = () => getAll<ConsultationTier>("consultationTiers");
+export const createConsultationTier = (data: Omit<ConsultationTier, "id">) => create<ConsultationTier>("consultationTiers", data);
+export const updateConsultationTier = (id: string, data: Partial<ConsultationTier>) => update<ConsultationTier>("consultationTiers", id, data);
+export const deleteConsultationTier = (id: string) => remove("consultationTiers", id);
+
+// ── Homepage Stats ─────────────────────────────────────────────────────────
+
+export interface HomepageStat {
+    id?: string;
+    value: string;      // e.g. "12k+"
+    label: string;      // e.g. "Meals delivered"
+    order: number;
+    active: boolean;
+}
+
+export const getHomepageStats = () => getAll<HomepageStat>("homepageStats");
+export const createHomepageStat = (data: Omit<HomepageStat, "id">) => create<HomepageStat>("homepageStats", data);
+export const updateHomepageStat = (id: string, data: Partial<HomepageStat>) => update<HomepageStat>("homepageStats", id, data);
+export const deleteHomepageStat = (id: string) => remove("homepageStats", id);
+
+// ── Food Library Categories ────────────────────────────────────────────────
+
+export interface FoodLibraryCategory {
+    id?: string;
+    category: string;       // e.g. "Grains"
+    items: string[];        // food names in this category
+    note: string;           // e.g. "5 foods · updated weekly"
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getFoodLibraryCategories = () => getAll<FoodLibraryCategory>("foodLibrary");
+export const createFoodLibraryCategory = (data: Omit<FoodLibraryCategory, "id">) => create<FoodLibraryCategory>("foodLibrary", data);
+export const updateFoodLibraryCategory = (id: string, data: Partial<FoodLibraryCategory>) => update<FoodLibraryCategory>("foodLibrary", id, data);
+export const deleteFoodLibraryCategory = (id: string) => remove("foodLibrary", id);
+
+// ── Homepage Hero Content ──────────────────────────────────────────────────
+
+export interface HomepageHeroContent {
+    id?: string;
+    deliveryText: string;       // e.g. "Now delivering across Lagos & Abuja"
+    line1: string;              // e.g. "Eat better."
+    line2: string;              // e.g. "Live longer."
+    line3: string;              // e.g. "Stay healthier."
+    subtitle: string;
+    cta1Label: string;
+    cta1Href: string;
+    cta2Label: string;
+    cta2Href: string;
+    healthPills: string[];      // e.g. ["💧 Diabetes", "💚 Blood Pressure"]
+    floatingCard1Title: string;
+    floatingCard1Sub: string;
+    floatingCard2Title: string;
+    floatingCard2Sub: string;
+    heroImage: string;
+    assessmentHeading: string;
+    assessmentCta1Label: string;
+    assessmentCta2Label: string;
+    updatedAt?: Timestamp;
+}
+
+export async function getHomepageHeroContent(): Promise<HomepageHeroContent | null> {
+    const snap = await getDocs(collection(db, "homepageHero"));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as HomepageHeroContent;
+}
+export async function saveHomepageHeroContent(data: Partial<HomepageHeroContent>): Promise<void> {
+    const snap = await getDocs(collection(db, "homepageHero"));
+    if (snap.empty) await addDoc(collection(db, "homepageHero"), { ...data, updatedAt: serverTimestamp() });
+    else await updateDoc(doc(db, "homepageHero", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+}
+
+// ── Export Destinations (cards above commodity table) ─────────────────────
+
+export interface ExportDestination {
+    id?: string;
+    flag: string;           // emoji flag e.g. "🇪🇺"
+    region: string;         // e.g. "Europe"
+    ports: string;          // e.g. "Rotterdam · Hamburg · Antwerp"
+    note: string;           // e.g. "EU-compliant documentation & phytosanitary certs."
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getExportDestinations = () => getAll<ExportDestination>("exportDestinations");
+export const createExportDestination = (data: Omit<ExportDestination, "id">) => create<ExportDestination>("exportDestinations", data);
+export const updateExportDestination = (id: string, data: Partial<ExportDestination>) => update<ExportDestination>("exportDestinations", id, data);
+export const deleteExportDestination = (id: string) => remove("exportDestinations", id);
+
+// ── Export Hero Content ────────────────────────────────────────────────────
+
+export interface ExportHeroContent {
+    id?: string;
+    eyebrow: string;        // e.g. "Global Export"
+    headingLine1: string;   // e.g. "Raw & processed organic"
+    headingLine2: string;   // e.g. "commodities —"
+    headingAccent: string;  // e.g. "Nigeria to the world."
+    subtitle: string;
+    cta1Label: string;
+    cta2Label: string;
+    catalogFootnote: string;
+    quoteCta1Label: string;
+    quoteCta2Label: string;
+    updatedAt?: Timestamp;
+}
+
+export async function getExportHeroContent(): Promise<ExportHeroContent | null> {
+    const snap = await getDocs(collection(db, "exportHero"));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as ExportHeroContent;
+}
+export async function saveExportHeroContent(data: Partial<ExportHeroContent>): Promise<void> {
+    const snap = await getDocs(collection(db, "exportHero"));
+    if (snap.empty) await addDoc(collection(db, "exportHero"), { ...data, updatedAt: serverTimestamp() });
+    else await updateDoc(doc(db, "exportHero", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+}
+
+// ── Compliance Certifications ──────────────────────────────────────────────
+
+export interface ComplianceCertification {
+    id?: string;
+    title: string;
+    body: string;
+    badge: string;          // e.g. "EU · USA · ASIA"
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getComplianceCertifications = () => getAll<ComplianceCertification>("complianceCerts");
+export const createComplianceCertification = (data: Omit<ComplianceCertification, "id">) => create<ComplianceCertification>("complianceCerts", data);
+export const updateComplianceCertification = (id: string, data: Partial<ComplianceCertification>) => update<ComplianceCertification>("complianceCerts", id, data);
+export const deleteComplianceCertification = (id: string) => remove("complianceCerts", id);
+
+// ── Compliance Destination Documents ──────────────────────────────────────
+
+export interface ComplianceDestination {
+    id?: string;
+    region: string;         // e.g. "Europe"
+    docs: string[];         // list of required document names
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getComplianceDestinations = () => getAll<ComplianceDestination>("complianceDests");
+export const createComplianceDestination = (data: Omit<ComplianceDestination, "id">) => create<ComplianceDestination>("complianceDests", data);
+export const updateComplianceDestination = (id: string, data: Partial<ComplianceDestination>) => update<ComplianceDestination>("complianceDests", id, data);
+export const deleteComplianceDestination = (id: string) => remove("complianceDests", id);
+
+// ── Compliance Hero & FAQs ─────────────────────────────────────────────────
+
+export interface ComplianceHeroContent {
+    id?: string;
+    eyebrow: string;
+    heading: string;
+    subtitle: string;
+    accrHeading: string;
+    accrSubtitle: string;
+    docsHeading: string;
+    docsSubtitle: string;
+    faqHeading: string;
+    faqSubtitle: string;
+    dueDiligenceHeading: string;
+    dueDiligenceBody: string;
+    cta1Label: string;
+    cta2Label: string;
+    updatedAt?: Timestamp;
+}
+
+export async function getComplianceHeroContent(): Promise<ComplianceHeroContent | null> {
+    const snap = await getDocs(collection(db, "complianceHero"));
+    if (snap.empty) return null;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as ComplianceHeroContent;
+}
+export async function saveComplianceHeroContent(data: Partial<ComplianceHeroContent>): Promise<void> {
+    const snap = await getDocs(collection(db, "complianceHero"));
+    if (snap.empty) await addDoc(collection(db, "complianceHero"), { ...data, updatedAt: serverTimestamp() });
+    else await updateDoc(doc(db, "complianceHero", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export interface ExportFAQ {
+    id?: string;
+    question: string;
+    answer: string;
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getExportFAQs = () => getAll<ExportFAQ>("exportFAQs");
+export const createExportFAQ = (data: Omit<ExportFAQ, "id">) => create<ExportFAQ>("exportFAQs", data);
+export const updateExportFAQ = (id: string, data: Partial<ExportFAQ>) => update<ExportFAQ>("exportFAQs", id, data);
+export const deleteExportFAQ = (id: string) => remove("exportFAQs", id);
