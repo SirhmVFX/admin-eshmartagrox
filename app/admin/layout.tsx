@@ -120,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <aside className="hidden lg:flex flex-col bg-gree-900 fixed left-0 top-0 h-full z-40 overflow-y-auto"><Sidebar /></aside>
             {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
             <aside className={`fixed left-0 top-0 h-full z-40 lg:hidden transition-transform duration-300 overflow-y-auto bg-green-900 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ width: 260 }}><Sidebar /></aside>
-            <div className="flex-1 flex flex-col lg:ml-[260px]">
+            <div className="flex-1 flex flex-col lg:ml-65">
                 <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
                     <button className="lg:hidden p-1" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><MdMenu size={22} /></button>
                     <div className="hidden lg:block"><p className="text-sm font-semibold text-gray-700 capitalize">{pathname.replace("/admin/", "").replace("/admin", "Dashboard") || "Dashboard"}</p></div>
