@@ -877,6 +877,7 @@ export interface HomepageHeroContent {
     assessmentHeading: string;
     assessmentCta1Label: string;
     assessmentCta2Label: string;
+    consultationImage?: string;
     updatedAt?: Timestamp;
 }
 

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import {
-    MdDashboard, MdImage, MdArticle, MdBook, MdPeople, MdContactMail, MdSettings,
+    MdDashboard, MdImage, MdArticle, MdBook, MdPeople, MdSettings,
     MdMenu, MdClose, MdLogout, MdStar, MdOutlineStore, MdContactPhone,
     MdLocalOffer, MdMail, MdAdminPanelSettings, MdCurrencyExchange, MdPublic, MdInventory,
 } from "react-icons/md";
@@ -26,8 +26,10 @@ const navSections = [
     },
     {
         label: "International Export", items: [
+            { href: "/admin/export-settings", label: "Export Settings", icon: MdPublic },
             { href: "/admin/export-commodities", label: "Commodities", icon: MdPublic },
             { href: "/admin/export-quotes", label: "Quote Requests", icon: MdInventory },
+            { href: "/admin/export-compliance-settings", label: "Compliance Settings", icon: MdPublic },
         ]
     },
     {
@@ -40,12 +42,12 @@ const navSections = [
     },
     {
         label: "Site", items: [
+            { href: "/admin/homepage-settings", label: "Homepage Settings", icon: MdSettings },
             { href: "/admin/navigation", label: "Navigation", icon: MdMenu },
-            { href: "/admin/settings", label: "Settings", icon: MdSettings },
+            { href: "/admin/settings", label: "Site Settings", icon: MdSettings },
             { href: "/admin/team", label: "Team", icon: MdPeople },
             { href: "/admin/testimonials", label: "Testimonials", icon: MdStar },
-            { href: "/admin/faqs", label: "FAQs", icon: MdContactPhone },
-            { href: "/admin/cta", label: "Call to Action", icon: MdContactMail },
+            { href: "/admin/faqs", label: "Local FAQs", icon: MdContactPhone },
             { href: "/admin/messages", label: "Messages", icon: MdMail },
         ]
     },
