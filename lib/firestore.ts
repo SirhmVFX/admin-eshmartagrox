@@ -1128,3 +1128,29 @@ export async function saveAboutPageContent(data: Partial<AboutPageContent>): Pro
         await updateDoc(doc(db, "aboutPage", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
     }
 }
+
+// ── Nutritionists ──────────────────────────────────────────────────────────
+
+export interface NutritionistTier {
+    icon: string;
+    title: string;
+    subtitle: string;
+    price: number;
+}
+
+export interface Nutritionist {
+    id?: string;
+    name: string;
+    designation: string;
+    photo: string;
+    tiers: NutritionistTier[];
+    active: boolean;
+    order: number;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export const getNutritionists = () => getAll<Nutritionist>("nutritionists");
+export const createNutritionist = (data: Omit<Nutritionist, "id">) => create<Nutritionist>("nutritionists", data);
+export const updateNutritionist = (id: string, data: Partial<Nutritionist>) => update<Nutritionist>("nutritionists", id, data);
+export const deleteNutritionist = (id: string) => remove("nutritionists", id);
