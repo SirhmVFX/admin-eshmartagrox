@@ -21,6 +21,16 @@ const defaultSettings = {
     showUser: true,
     shopBannerImage: "",
     shopBannerTitle: "Our Shop",
+    // Social media
+    facebook: "",
+    instagram: "",
+    twitter: "",
+    tiktok: "",
+    youtube: "",
+    linkedin: "",
+    pinterest: "",
+    threads: "",
+    whatsapp: "",
 };
 
 export default function SettingsPage() {
@@ -86,6 +96,22 @@ export default function SettingsPage() {
                     <label className="admin-label">Shop Banner Title</label>
                     <input className="admin-input" value={form.shopBannerTitle ?? ""} onChange={(e) => set("shopBannerTitle", e.target.value)} placeholder="Our Shop" />
                     <p className="text-xs text-gray-400 mt-1">Heading shown over the shop banner. Defaults to "Our Shop".</p>
+                </div>
+            </div>
+
+            <div className="admin-card space-y-4">
+                <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Social Media Links</p>
+                <p className="text-xs text-gray-400">Enter full URLs (e.g. https://facebook.com/yourpage). Leave blank to hide from the footer.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><label className="admin-label">Facebook</label><input className="admin-input" value={(form as any).facebook ?? ""} onChange={(e) => set("facebook" as any, e.target.value)} placeholder="https://facebook.com/…" /></div>
+                    <div><label className="admin-label">Instagram</label><input className="admin-input" value={(form as any).instagram ?? ""} onChange={(e) => set("instagram" as any, e.target.value)} placeholder="https://instagram.com/…" /></div>
+                    <div><label className="admin-label">TikTok</label><input className="admin-input" value={(form as any).tiktok ?? ""} onChange={(e) => set("tiktok" as any, e.target.value)} placeholder="https://tiktok.com/@…" /></div>
+                    <div><label className="admin-label">YouTube</label><input className="admin-input" value={(form as any).youtube ?? ""} onChange={(e) => set("youtube" as any, e.target.value)} placeholder="https://youtube.com/@…" /></div>
+                    <div><label className="admin-label">Twitter / X</label><input className="admin-input" value={(form as any).twitter ?? ""} onChange={(e) => set("twitter" as any, e.target.value)} placeholder="https://x.com/…" /></div>
+                    <div><label className="admin-label">LinkedIn</label><input className="admin-input" value={(form as any).linkedin ?? ""} onChange={(e) => set("linkedin" as any, e.target.value)} placeholder="https://linkedin.com/…" /></div>
+                    <div><label className="admin-label">Pinterest</label><input className="admin-input" value={(form as any).pinterest ?? ""} onChange={(e) => set("pinterest" as any, e.target.value)} placeholder="https://pinterest.com/…" /></div>
+                    <div><label className="admin-label">Threads</label><input className="admin-input" value={(form as any).threads ?? ""} onChange={(e) => set("threads" as any, e.target.value)} placeholder="https://threads.net/@…" /></div>
+                    <div><label className="admin-label">WhatsApp Number</label><input className="admin-input" value={(form as any).whatsapp ?? ""} onChange={(e) => set("whatsapp" as any, e.target.value)} placeholder="+2347047296000" /><p className="text-xs text-gray-400 mt-1">Include country code, digits only (e.g. +2347047296000).</p></div>
                 </div>
             </div>
 

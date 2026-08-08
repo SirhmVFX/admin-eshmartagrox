@@ -38,6 +38,7 @@ const navSections = [
             { href: "/admin/portfolio", label: "Portfolio", icon: MdStar },
             { href: "/admin/services", label: "Services", icon: MdBook },
             { href: "/admin/food-library", label: "Food Library", icon: MdImage },
+            { href: "/admin/about-page", label: "About Page", icon: MdArticle },
         ]
     },
     {

@@ -70,6 +70,16 @@ export interface SiteSettings {
     showUser: boolean;
     shopBannerImage?: string;
     shopBannerTitle?: string;
+    // Social media
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    tiktok?: string;
+    youtube?: string;
+    linkedin?: string;
+    pinterest?: string;
+    threads?: string;
+    whatsapp?: string;
     updatedAt?: Timestamp;
 }
 
@@ -1019,3 +1029,102 @@ export const getExportFAQs = () => getAll<ExportFAQ>("exportFAQs");
 export const createExportFAQ = (data: Omit<ExportFAQ, "id">) => create<ExportFAQ>("exportFAQs", data);
 export const updateExportFAQ = (id: string, data: Partial<ExportFAQ>) => update<ExportFAQ>("exportFAQs", id, data);
 export const deleteExportFAQ = (id: string) => remove("exportFAQs", id);
+
+// ── About Page Content ─────────────────────────────────────────────────────
+
+export interface AboutStat {
+    value: string;   // e.g. "500+"
+    label: string;   // e.g. "Happy Customers"
+    color: string;   // tailwind bg class e.g. "bg-green-900"
+}
+
+export interface AboutValue {
+    icon: string;   // emoji
+    title: string;
+    desc: string;
+}
+
+export interface AboutService {
+    icon: string;
+    title: string;
+    desc: string;
+    href: string;
+}
+
+export interface AboutPageContent {
+    id?: string;
+    // Hero
+    heroLabel: string;             // e.g. "Our Story"
+    heroHeading: string;           // e.g. "About Eshmart Agrox"
+    heroSubtext: string;
+    heroBgImage: string;
+    // Who We Are
+    whoHeading: string;
+    whoParagraph1: string;
+    whoParagraph2: string;
+    whoParagraph3: string;
+    // Stats
+    stats: AboutStat[];
+    // Values
+    valuesHeading: string;
+    valuesSubtext: string;
+    values: AboutValue[];
+    // What We Do
+    servicesHeading: string;
+    services: AboutService[];
+    // CTA section
+    ctaHeading: string;
+    ctaSubtext: string;
+    updatedAt?: Timestamp;
+}
+
+const DEFAULT_ABOUT: Omit<AboutPageContent, "id"> = {
+    heroLabel: "Our Story",
+    heroHeading: "About Eshmart Agrox",
+    heroSubtext: "Nigerian Produce. Exported with Integrity.",
+    heroBgImage: "",
+    whoHeading: "Who We Are",
+    whoParagraph1: "Eshmart Agrox is a Nigerian agro-export and healthy food delivery company dedicated to bringing the best of Nigeria's organic produce to your table — and to the world.",
+    whoParagraph2: "Whether you're looking for weekly grocery packs designed around your health goals, or you're an international buyer seeking certified Nigerian commodities — we are your reliable partner.",
+    whoParagraph3: "Our commitment goes beyond commerce. We work to empower local farmers, support community food security, and make nutritious eating accessible for every Nigerian household.",
+    stats: [
+        { value: "500+", label: "Happy Customers", color: "bg-green-900 text-white" },
+        { value: "20+", label: "Produce Varieties", color: "bg-orange-500 text-white" },
+        { value: "10+", label: "Countries Served", color: "bg-green-100 text-green-900" },
+        { value: "100%", label: "Organic Sourced", color: "bg-gray-100 text-gray-900" },
+    ],
+    valuesHeading: "Our Values",
+    valuesSubtext: "Every decision we make is guided by these core principles.",
+    values: [
+        { icon: "🌱", title: "Freshness First", desc: "We source produce at peak freshness and deliver within 24–48 hours of harvest where possible." },
+        { icon: "🤝", title: "Farmer Partnership", desc: "We pay fair prices to smallholder farmers and provide technical support to improve yield quality." },
+        { icon: "📦", title: "Export Quality", desc: "All our export commodities meet EU, UK, and US phytosanitary and certification standards." },
+        { icon: "❤️", title: "Wellness Focus", desc: "We design our packs around real health goals — diabetes, hypertension, weight management, and senior care." },
+    ],
+    servicesHeading: "What We Do",
+    services: [
+        { icon: "🛒", title: "Healthy Grocery Packs", desc: "Curated weekly meal packs designed for specific health conditions.", href: "/shop" },
+        { icon: "🚢", title: "International Export", desc: "We export premium Nigerian commodities to buyers in Europe, USA and Asia.", href: "/export" },
+        { icon: "📊", title: "Nutrition Calculator", desc: "Free tool to analyse Nigerian meals and build healthier eating habits.", href: "/calculator" },
+        { icon: "👥", title: "Senior Wellness", desc: "Dedicated programmes for older adults with guidance from nutrition professionals.", href: "/shop" },
+        { icon: "📱", title: "WhatsApp Support", desc: "Direct human support via WhatsApp — no bots, no long waits.", href: "https://wa.me/2347047296000" },
+        { icon: "📰", title: "Health Blog", desc: "Expert articles on Nigerian nutrition and practical wellness advice.", href: "/blog" },
+    ],
+    ctaHeading: "Get in Touch",
+    ctaSubtext: "Whether you're a customer, a farmer, or an international buyer — we'd love to hear from you.",
+};
+
+export async function getAboutPageContent(): Promise<AboutPageContent> {
+    const snap = await getDocs(collection(db, "aboutPage"));
+    if (snap.empty) return DEFAULT_ABOUT as AboutPageContent;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as AboutPageContent;
+}
+
+export async function saveAboutPageContent(data: Partial<AboutPageContent>): Promise<void> {
+    const snap = await getDocs(collection(db, "aboutPage"));
+    if (snap.empty) {
+        await addDoc(collection(db, "aboutPage"), { ...DEFAULT_ABOUT, ...data, updatedAt: serverTimestamp() });
+    } else {
+        await updateDoc(doc(db, "aboutPage", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+    }
+}
