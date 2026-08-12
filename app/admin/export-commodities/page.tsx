@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     getExportCommodities, createExportCommodity, updateExportCommodity,
     deleteExportCommodity, ExportCommodity,
+    EXPORT_CATEGORIES, EXPORT_CERTIFICATIONS, EXPORT_MARKETS, EXPORT_PACKAGING,
+    ExportCategory, ExportCertification, ExportMarket, ExportPackaging,
 } from "@/lib/firestore";
 import ImageUpload from "@/components/ImageUpload";
 import { MdAdd, MdEdit, MdDelete, MdClose } from "react-icons/md";
 
 const empty: Omit<ExportCommodity, "id"> = {
     name: "", spec: "", priceMin: 0, priceMax: 0, moq: "",
-    catalogType: "raw", image: "", active: true, order: 0,
+    catalogType: "raw",
+    category: "Nuts",
+    certification: "Organic",
+    markets: ["Europe"],
+    packaging: ["25 kg"],
+    image: "", active: true, order: 0,
 };
+
+type TypeFilter = "all" | "raw" | "processed";
+
+function toggleInList<T extends string>(list: T[] | undefined, value: T): T[] {
+    const current = list ?? [];
+    return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+}
 
 export default function ExportCommoditiesPage() {
     const [items, setItems] = useState<ExportCommodity[]>([]);
@@ -21,7 +35,12 @@ export default function ExportCommoditiesPage() {
     const [form, setForm] = useState<Omit<ExportCommodity, "id">>(empty);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
-    const [filterType, setFilterType] = useState<"all" | "raw" | "processed">("all");
+
+    const [filterType, setFilterType] = useState<TypeFilter>("all");
+    const [filterCategory, setFilterCategory] = useState<ExportCategory | "all">("all");
+    const [filterCertification, setFilterCertification] = useState<ExportCertification | "all">("all");
+    const [filterMarket, setFilterMarket] = useState<ExportMarket | "all">("all");
+    const [filterPackaging, setFilterPackaging] = useState<ExportPackaging | "all">("all");
 
     async function load() {
         setLoading(true);
@@ -34,7 +53,10 @@ export default function ExportCommoditiesPage() {
         setEditing(c);
         setForm({
             name: c.name, spec: c.spec, priceMin: c.priceMin, priceMax: c.priceMax,
-            moq: c.moq, catalogType: c.catalogType ?? "raw", image: c.image ?? "",
+            moq: c.moq, catalogType: c.catalogType ?? "raw",
+            category: c.category, certification: c.certification,
+            markets: c.markets ?? [], packaging: c.packaging ?? [],
+            image: c.image ?? "",
             active: c.active, order: c.order ?? 0,
         });
         setError(""); setShowModal(true);
@@ -43,6 +65,10 @@ export default function ExportCommoditiesPage() {
     async function handleSave() {
         if (!form.name.trim()) { setError("Name is required."); return; }
         if (form.priceMin <= 0) { setError("Min price must be greater than 0."); return; }
+        if (!form.category) { setError("Category is required."); return; }
+        if (!form.certification) { setError("Certification is required."); return; }
+        if (!form.markets?.length) { setError("Select at least one market."); return; }
+        if (!form.packaging?.length) { setError("Select at least one packaging option."); return; }
         setSaving(true); setError("");
         try {
             if (editing?.id) await updateExportCommodity(editing.id, form);
@@ -62,12 +88,20 @@ export default function ExportCommoditiesPage() {
         await updateExportCommodity(c.id, { active: !c.active }); await load();
     }
 
-    const filtered = filterType === "all" ? items : items.filter(c => c.catalogType === filterType);
+    const filtered = useMemo(() => items.filter((c) => {
+        if (filterType !== "all" && c.catalogType !== filterType) return false;
+        if (filterCategory !== "all" && c.category !== filterCategory) return false;
+        if (filterCertification !== "all" && c.certification !== filterCertification) return false;
+        if (filterMarket !== "all" && !(c.markets ?? []).includes(filterMarket)) return false;
+        if (filterPackaging !== "all" && !(c.packaging ?? []).includes(filterPackaging)) return false;
+        return true;
+    }), [items, filterType, filterCategory, filterCertification, filterMarket, filterPackaging]);
+
     const rawCount = items.filter(c => c.catalogType === "raw").length;
     const processedCount = items.filter(c => c.catalogType === "processed").length;
 
     return (
-        <div className="max-w-5xl space-y-4">
+        <div className="max-w-6xl space-y-4">
             <div className="section-header">
                 <div>
                     <h1 className="text-lg font-semibold text-gray-900">Export Commodities</h1>
@@ -80,7 +114,7 @@ export default function ExportCommoditiesPage() {
                 </button>
             </div>
 
-            {/* Filter tabs */}
+            {/* Product type tabs */}
             <div className="flex gap-1 border-b border-gray-200">
                 {([["all", `All (${items.length})`], ["raw", `Raw (${rawCount})`], ["processed", `Processed (${processedCount})`]] as const).map(([f, label]) => (
                     <button
@@ -94,11 +128,43 @@ export default function ExportCommoditiesPage() {
                 ))}
             </div>
 
+            {/* Detail filters */}
+            <div className="admin-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label className="admin-label">Category</label>
+                    <select className="admin-input" value={filterCategory} onChange={e => setFilterCategory(e.target.value as ExportCategory | "all")}>
+                        <option value="all">All</option>
+                        {EXPORT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="admin-label">Certification</label>
+                    <select className="admin-input" value={filterCertification} onChange={e => setFilterCertification(e.target.value as ExportCertification | "all")}>
+                        <option value="all">All</option>
+                        {EXPORT_CERTIFICATIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="admin-label">Market</label>
+                    <select className="admin-input" value={filterMarket} onChange={e => setFilterMarket(e.target.value as ExportMarket | "all")}>
+                        <option value="all">All</option>
+                        {EXPORT_MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="admin-label">Packaging</label>
+                    <select className="admin-input" value={filterPackaging} onChange={e => setFilterPackaging(e.target.value as ExportPackaging | "all")}>
+                        <option value="all">All</option>
+                        {EXPORT_PACKAGING.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                </div>
+            </div>
+
             {loading ? (
                 <div className="admin-card text-sm text-gray-500">Loading…</div>
             ) : filtered.length === 0 ? (
                 <div className="admin-card text-center py-12 text-gray-400">
-                    No commodities yet. Add your first one.
+                    No commodities match these filters.
                 </div>
             ) : (
                 <div className="admin-card p-0 overflow-hidden overflow-x-auto">
@@ -109,9 +175,11 @@ export default function ExportCommoditiesPage() {
                                 <th>Image</th>
                                 <th>Commodity</th>
                                 <th>Type</th>
-                                <th>Spec</th>
+                                <th>Category</th>
+                                <th>Cert</th>
+                                <th>Markets</th>
+                                <th>Packaging</th>
                                 <th>Price Range (USD/MT)</th>
-                                <th>MOQ</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -127,17 +195,22 @@ export default function ExportCommoditiesPage() {
                                             <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-300 text-xs">—</div>
                                         )}
                                     </td>
-                                    <td className="font-medium text-gray-900 max-w-[180px] truncate">{c.name}</td>
+                                    <td className="font-medium text-gray-900 max-w-[160px]">
+                                        <div className="truncate">{c.name}</div>
+                                        <div className="text-xs text-gray-400 truncate">{c.spec}</div>
+                                    </td>
                                     <td>
                                         <span className={`badge text-[10px] ${c.catalogType === "raw" ? "badge-green" : "badge-blue"}`}>
                                             {c.catalogType}
                                         </span>
                                     </td>
-                                    <td className="text-gray-500 text-sm max-w-[160px] truncate">{c.spec}</td>
+                                    <td className="text-sm text-gray-600">{c.category ?? "—"}</td>
+                                    <td className="text-sm text-gray-600">{c.certification ?? "—"}</td>
+                                    <td className="text-xs text-gray-500 max-w-[120px]">{(c.markets ?? []).join(", ") || "—"}</td>
+                                    <td className="text-xs text-gray-500 max-w-[100px]">{(c.packaging ?? []).join(", ") || "—"}</td>
                                     <td className="text-sm font-semibold text-green-700 whitespace-nowrap">
-                                        ${c.priceMin.toLocaleString()} – ${c.priceMax.toLocaleString()} / MT
+                                        ${c.priceMin.toLocaleString()} – ${c.priceMax.toLocaleString()}
                                     </td>
-                                    <td className="text-sm text-gray-600 whitespace-nowrap">{c.moq}</td>
                                     <td>
                                         <button onClick={() => toggleActive(c)}>
                                             <span className={`badge ${c.active ? "badge-green" : "badge-gray"}`}>
@@ -165,7 +238,7 @@ export default function ExportCommoditiesPage() {
             {/* Modal */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-box" style={{ maxWidth: 560 }}>
+                    <div className="modal-box" style={{ maxWidth: 640 }}>
                         <div className="modal-header">
                             <h2 className="text-base font-semibold">{editing ? "Edit Commodity" : "New Commodity"}</h2>
                             <button onClick={() => setShowModal(false)}><MdClose size={20} /></button>
@@ -175,7 +248,7 @@ export default function ExportCommoditiesPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="admin-label">Catalog Type *</label>
+                                    <label className="admin-label">Product Type *</label>
                                     <select
                                         className="admin-input"
                                         value={form.catalogType}
@@ -199,6 +272,71 @@ export default function ExportCommoditiesPage() {
                             <div>
                                 <label className="admin-label">Grade / Spec</label>
                                 <input className="admin-input" value={form.spec} onChange={e => setForm({ ...form, spec: e.target.value })} placeholder="e.g. 99% purity, FFA <2%" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="admin-label">Category *</label>
+                                    <select
+                                        className="admin-input"
+                                        value={form.category ?? ""}
+                                        onChange={e => setForm({ ...form, category: e.target.value as ExportCategory })}
+                                    >
+                                        <option value="" disabled>Select category…</option>
+                                        {EXPORT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="admin-label">Certification *</label>
+                                    <select
+                                        className="admin-input"
+                                        value={form.certification ?? ""}
+                                        onChange={e => setForm({ ...form, certification: e.target.value as ExportCertification })}
+                                    >
+                                        <option value="" disabled>Select certification…</option>
+                                        {EXPORT_CERTIFICATIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="admin-label">Market * <span className="font-normal text-gray-400">(select all that apply)</span></label>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {EXPORT_MARKETS.map(m => {
+                                        const checked = (form.markets ?? []).includes(m);
+                                        return (
+                                            <label key={m} className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border cursor-pointer ${checked ? "bg-green-50 border-green-600 text-green-800" : "border-gray-200 text-gray-600"}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only"
+                                                    checked={checked}
+                                                    onChange={() => setForm({ ...form, markets: toggleInList(form.markets, m) })}
+                                                />
+                                                {m}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="admin-label">Packaging * <span className="font-normal text-gray-400">(select all that apply)</span></label>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {EXPORT_PACKAGING.map(p => {
+                                        const checked = (form.packaging ?? []).includes(p);
+                                        return (
+                                            <label key={p} className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border cursor-pointer ${checked ? "bg-green-50 border-green-600 text-green-800" : "border-gray-200 text-gray-600"}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only"
+                                                    checked={checked}
+                                                    onChange={() => setForm({ ...form, packaging: toggleInList(form.packaging, p) })}
+                                                />
+                                                {p}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
