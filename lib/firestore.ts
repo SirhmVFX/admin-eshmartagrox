@@ -70,6 +70,11 @@ export interface SiteSettings {
     showUser: boolean;
     shopBannerImage?: string;
     shopBannerTitle?: string;
+    teamPageLabel?: string;
+    teamPageTitle?: string;
+    teamPageSubtitle?: string;
+    faqPageTitle?: string;
+    faqPageSubtitle?: string;
     // Social media
     facebook?: string;
     instagram?: string;
@@ -151,6 +156,11 @@ export interface AdminUser {
     updatedAt?: Timestamp;
 }
 
+export const PRODUCT_MEASURE_UNITS = [
+    "kg", "g", "cup", "pcs", "tbsp", "tsp", "bowl", "bunch", "pack", "litre", "ml",
+] as const;
+export type ProductMeasureUnit = (typeof PRODUCT_MEASURE_UNITS)[number];
+
 export interface FirestoreProduct {
     id?: string;
     name: string;
@@ -163,6 +173,7 @@ export interface FirestoreProduct {
     colors: string[];
     description: string;
     details: string[];
+    detailsHtml?: string; // WYSIWYG product details
     rating: number;
     reviews: number;
     inStock: boolean;
@@ -170,7 +181,22 @@ export interface FirestoreProduct {
     isBestSeller?: boolean;
     tags: string[];
     inventory?: { size: string; color: string; quantity: number }[];
-    recommendedAddonIds?: string[]; // IDs of products to show as "Recommended Add-ons"
+    recommendedAddonIds?: string[];
+    relatedProductIds?: string[];
+    // Food measurements used by the nutrition/health calculators
+    weight?: number;
+    weightUnit?: string;
+    measureAmount?: number;
+    measureUnit?: string;
+    servingSize?: string;
+    gramsPerUnit?: number;
+    caloriesPerServing?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    fibre?: number;
+    sodium?: number;
+    sugar?: number;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
@@ -247,24 +273,36 @@ export interface FAQ {
 
 async function getAll<T>(col: string): Promise<T[]> {
     const snap = await getDocs(collection(db, col));
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+    return snap.docs.map((d) => ({ ...d.data(), id: d.id } as T));
 }
 
 async function getOrdered<T>(col: string, field = "order"): Promise<T[]> {
     const q = query(collection(db, col), orderBy(field));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+    return snap.docs.map((d) => ({ ...d.data(), id: d.id } as T));
 }
 
 async function getOne<T>(col: string, id: string): Promise<T | null> {
     const snap = await getDoc(doc(db, col, id));
     if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as T;
+    return { ...snap.data(), id: snap.id } as T;
+}
+
+/** Firestore rejects `undefined` / `NaN` in writes. */
+function stripUndefined(data: Record<string, unknown>) {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (key === "id" || key === "createdAt" || key === "updatedAt") continue;
+        if (value === undefined) continue;
+        if (typeof value === "number" && Number.isNaN(value)) continue;
+        out[key] = value;
+    }
+    return out;
 }
 
 async function create<T extends DocumentData>(col: string, data: Omit<T, "id">): Promise<string> {
     const ref = await addDoc(collection(db, col), {
-        ...data,
+        ...stripUndefined(data as Record<string, unknown>),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });
@@ -273,7 +311,7 @@ async function create<T extends DocumentData>(col: string, data: Omit<T, "id">):
 
 async function update<T extends DocumentData>(col: string, id: string, data: Partial<T>): Promise<void> {
     await updateDoc(doc(db, col, id), {
-        ...data,
+        ...stripUndefined(data as Record<string, unknown>),
         updatedAt: serverTimestamp(),
     });
 }
@@ -759,6 +797,10 @@ export interface ExportCommodity {
     markets?: ExportMarket[];
     packaging?: ExportPackaging[];
     image?: string;
+    galleryImages?: string[];
+    description?: string;
+    detailsHtml?: string;
+    relatedIds?: string[];
     active: boolean;
     order: number;
     createdAt?: Timestamp;
@@ -766,6 +808,7 @@ export interface ExportCommodity {
 }
 
 export const getExportCommodities = () => getAll<ExportCommodity>("exportCommodities");
+export const getExportCommodity = (id: string) => getOne<ExportCommodity>("exportCommodities", id);
 export const createExportCommodity = (data: Omit<ExportCommodity, "id">) => create<ExportCommodity>("exportCommodities", data);
 export const updateExportCommodity = (id: string, data: Partial<ExportCommodity>) => update<ExportCommodity>("exportCommodities", id, data);
 export const deleteExportCommodity = (id: string) => remove("exportCommodities", id);
@@ -951,6 +994,7 @@ export interface ExportHeroContent {
     catalogFootnote: string;
     quoteCta1Label: string;
     quoteCta2Label: string;
+    hidePrices?: boolean;
     updatedAt?: Timestamp;
 }
 
@@ -1170,3 +1214,88 @@ export const getNutritionists = () => getAll<Nutritionist>("nutritionists");
 export const createNutritionist = (data: Omit<Nutritionist, "id">) => create<Nutritionist>("nutritionists", data);
 export const updateNutritionist = (id: string, data: Partial<Nutritionist>) => update<Nutritionist>("nutritionists", id, data);
 export const deleteNutritionist = (id: string) => remove("nutritionists", id);
+
+// ── Health Calculator ──────────────────────────────────────────────────────
+
+export type HealthMetricKind = "number" | "derived_bmi";
+
+export interface HealthMetric {
+    id?: string;
+    key: string;
+    label: string;
+    unit: string;
+    icon: string;
+    placeholder?: string;
+    helpText?: string;
+    kind: HealthMetricKind;
+    scored: boolean;
+    greenMin: number;
+    greenMax: number;
+    yellowMin: number;
+    yellowMax: number;
+    order: number;
+    active: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export interface HealthCalculatorPage {
+    id?: string;
+    pageTitle: string;
+    pageSubtitle: string;
+    disclaimer: string;
+    goodLabel: string;
+    fairLabel: string;
+    badLabel: string;
+    goodMinScore: number;
+    fairMinScore: number;
+    ctaLabel?: string;
+    ctaHref?: string;
+    updatedAt?: Timestamp;
+}
+
+export const DEFAULT_HEALTH_PAGE: HealthCalculatorPage = {
+    pageTitle: "Health Calculator",
+    pageSubtitle: "Enter your height, weight, sleep, blood pressure, blood glucose and more to get a traffic-light health status.",
+    disclaimer: "This calculator provides general wellness guidance only. It does not replace medical advice. Please consult your doctor for personal health conditions.",
+    goodLabel: "Good health",
+    fairLabel: "Fairly good health status",
+    badLabel: "Very bad health",
+    goodMinScore: 1.6,
+    fairMinScore: 0.8,
+    ctaLabel: "Book a nutrition consultation",
+    ctaHref: "/book-online",
+};
+
+export const DEFAULT_HEALTH_METRICS: Omit<HealthMetric, "id">[] = [
+    { key: "height", label: "Height", unit: "cm", icon: "📏", placeholder: "e.g. 170", helpText: "Used with weight to calculate BMI.", kind: "number", scored: false, greenMin: 0, greenMax: 0, yellowMin: 0, yellowMax: 0, order: 1, active: true },
+    { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", placeholder: "e.g. 68", helpText: "Used with height to calculate BMI.", kind: "number", scored: false, greenMin: 0, greenMax: 0, yellowMin: 0, yellowMax: 0, order: 2, active: true },
+    { key: "bmi", label: "Body Mass Index (BMI)", unit: "kg/m²", icon: "📊", helpText: "Calculated automatically from height and weight.", kind: "derived_bmi", scored: true, greenMin: 18.5, greenMax: 24.9, yellowMin: 17, yellowMax: 29.9, order: 3, active: true },
+    { key: "sleep", label: "Sleeping hours", unit: "hrs/night", icon: "😴", placeholder: "e.g. 7.5", helpText: "Average hours of sleep per night.", kind: "number", scored: true, greenMin: 7, greenMax: 9, yellowMin: 6, yellowMax: 10, order: 4, active: true },
+    { key: "bp_systolic", label: "Blood Pressure (Systolic)", unit: "mmHg", icon: "🫀", placeholder: "e.g. 118", helpText: "The top number of your blood pressure reading.", kind: "number", scored: true, greenMin: 90, greenMax: 120, yellowMin: 80, yellowMax: 139, order: 5, active: true },
+    { key: "bp_diastolic", label: "Blood Pressure (Diastolic)", unit: "mmHg", icon: "🫀", placeholder: "e.g. 76", helpText: "The bottom number of your blood pressure reading.", kind: "number", scored: true, greenMin: 60, greenMax: 80, yellowMin: 50, yellowMax: 89, order: 6, active: true },
+    { key: "glucose", label: "Blood Glucose (fasting)", unit: "mg/dL", icon: "🩸", placeholder: "e.g. 92", helpText: "Fasting blood glucose reading.", kind: "number", scored: true, greenMin: 70, greenMax: 99, yellowMin: 55, yellowMax: 125, order: 7, active: true },
+    { key: "heart_rate", label: "Resting Heart Rate", unit: "bpm", icon: "❤️", placeholder: "e.g. 72", helpText: "Beats per minute at rest.", kind: "number", scored: true, greenMin: 60, greenMax: 100, yellowMin: 50, yellowMax: 110, order: 8, active: true },
+    { key: "waist", label: "Waist Circumference", unit: "cm", icon: "📐", placeholder: "e.g. 82", helpText: "Measured at the navel.", kind: "number", scored: true, greenMin: 0, greenMax: 94, yellowMin: 0, yellowMax: 102, order: 9, active: true },
+    { key: "water", label: "Daily Water Intake", unit: "litres", icon: "💧", placeholder: "e.g. 2.5", helpText: "Average litres of water drunk per day.", kind: "number", scored: true, greenMin: 2, greenMax: 4, yellowMin: 1.5, yellowMax: 5, order: 10, active: true },
+];
+
+export const getHealthMetrics = () => getAll<HealthMetric>("healthMetrics");
+export const createHealthMetric = (data: Omit<HealthMetric, "id">) => create<HealthMetric>("healthMetrics", data);
+export const updateHealthMetric = (id: string, data: Partial<HealthMetric>) => update<HealthMetric>("healthMetrics", id, data);
+export const deleteHealthMetric = (id: string) => remove("healthMetrics", id);
+
+export async function getHealthCalculatorPage(): Promise<HealthCalculatorPage> {
+    const snap = await getDocs(collection(db, "healthCalculatorPage"));
+    if (snap.empty) return DEFAULT_HEALTH_PAGE;
+    return { id: snap.docs[0].id, ...snap.docs[0].data() } as HealthCalculatorPage;
+}
+
+export async function saveHealthCalculatorPage(data: Partial<HealthCalculatorPage>): Promise<void> {
+    const snap = await getDocs(collection(db, "healthCalculatorPage"));
+    if (snap.empty) {
+        await addDoc(collection(db, "healthCalculatorPage"), { ...DEFAULT_HEALTH_PAGE, ...data, updatedAt: serverTimestamp() });
+    } else {
+        await updateDoc(doc(db, "healthCalculatorPage", snap.docs[0].id), { ...data, updatedAt: serverTimestamp() });
+    }
+}

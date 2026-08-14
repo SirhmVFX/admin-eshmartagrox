@@ -19,6 +19,7 @@ const DEFAULT_HERO: ExportHeroContent = {
     catalogFootnote: "Prices are indicative FOB Lagos / Apapa in USD and subject to market conditions, lot size and destination. CIF, CFR and DDP terms available on request.",
     quoteCta1Label: "Send Quote Request",
     quoteCta2Label: "Talk to export desk",
+    hidePrices: false,
 };
 
 const emptyDest: Omit<ExportDestination, "id"> = {
@@ -109,6 +110,14 @@ export default function ExportSettingsPage() {
                     <div><label className="admin-label">Quote CTA 2 Label</label><input className="admin-input" value={hero.quoteCta2Label} onChange={e => setH("quoteCta2Label", e.target.value)} /></div>
                 </div>
                 <div><label className="admin-label">Catalog Footnote</label><textarea className="admin-input" rows={2} value={hero.catalogFootnote} onChange={e => setH("catalogFootnote", e.target.value)} /></div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={!!hero.hidePrices}
+                        onChange={e => setHero(h => ({ ...h, hidePrices: e.target.checked }))}
+                    />
+                    Hide prices / cost on the full export catalog
+                </label>
                 <button className="btn-primary flex items-center gap-2 py-2 px-4 text-sm" onClick={handleSaveHero} disabled={heroSaving}>
                     <MdSave size={15} /> {heroSaved ? "Saved!" : heroSaving ? "Saving…" : "Save Hero Content"}
                 </button>

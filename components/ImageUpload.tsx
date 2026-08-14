@@ -38,7 +38,7 @@ export default function ImageUpload({ value, onChange, label = "Image" }: Props)
             )}
             {uploading && <p className="text-xs text-green-600 mt-1">Uploading…</p>}
             {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
-            <input type="url" value={value} onChange={(e) => onChange(e.target.value)} className="admin-input mt-2 text-xs" placeholder="Or paste image URL" />
+            <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="admin-input mt-2 text-xs" placeholder="Or paste image URL" />
             <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </div>
     );

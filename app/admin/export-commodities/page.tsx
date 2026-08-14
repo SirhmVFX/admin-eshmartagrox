@@ -8,6 +8,7 @@ import {
     ExportCategory, ExportCertification, ExportMarket, ExportPackaging,
 } from "@/lib/firestore";
 import ImageUpload from "@/components/ImageUpload";
+import WysiwygEditor from "@/components/WysiwygEditor";
 import { MdAdd, MdEdit, MdDelete, MdClose } from "react-icons/md";
 
 const empty: Omit<ExportCommodity, "id"> = {
@@ -17,7 +18,12 @@ const empty: Omit<ExportCommodity, "id"> = {
     certification: "Organic",
     markets: ["Europe"],
     packaging: ["25 kg"],
-    image: "", active: true, order: 0,
+    image: "",
+    galleryImages: ["", ""],
+    description: "",
+    detailsHtml: "",
+    relatedIds: [],
+    active: true, order: 0,
 };
 
 type TypeFilter = "all" | "raw" | "processed";
@@ -52,30 +58,66 @@ export default function ExportCommoditiesPage() {
     function openEdit(c: ExportCommodity) {
         setEditing(c);
         setForm({
-            name: c.name, spec: c.spec, priceMin: c.priceMin, priceMax: c.priceMax,
-            moq: c.moq, catalogType: c.catalogType ?? "raw",
-            category: c.category, certification: c.certification,
-            markets: c.markets ?? [], packaging: c.packaging ?? [],
+            name: c.name ?? "",
+            spec: c.spec ?? "",
+            priceMin: Number(c.priceMin) || 0,
+            priceMax: Number(c.priceMax) || 0,
+            moq: c.moq ?? "",
+            catalogType: c.catalogType === "processed" ? "processed" : "raw",
+            category: c.category ?? "Nuts",
+            certification: c.certification ?? "Organic",
+            markets: c.markets?.length ? c.markets : ["Europe"],
+            packaging: c.packaging?.length ? c.packaging : ["25 kg"],
             image: c.image ?? "",
-            active: c.active, order: c.order ?? 0,
+            galleryImages: c.galleryImages?.length ? [...c.galleryImages.filter(Boolean), ""].slice(0, 4) : ["", ""],
+            description: c.description ?? "",
+            detailsHtml: c.detailsHtml ?? "",
+            relatedIds: c.relatedIds ?? [],
+            active: c.active !== false,
+            order: c.order ?? 0,
         });
-        setError(""); setShowModal(true);
+        setError("");
+        setShowModal(true);
     }
 
     async function handleSave() {
         if (!form.name.trim()) { setError("Name is required."); return; }
-        if (form.priceMin <= 0) { setError("Min price must be greater than 0."); return; }
+        if (form.priceMin < 0) { setError("Min price cannot be negative."); return; }
         if (!form.category) { setError("Category is required."); return; }
         if (!form.certification) { setError("Certification is required."); return; }
         if (!form.markets?.length) { setError("Select at least one market."); return; }
         if (!form.packaging?.length) { setError("Select at least one packaging option."); return; }
         setSaving(true); setError("");
         try {
-            if (editing?.id) await updateExportCommodity(editing.id, form);
-            else await createExportCommodity(form);
-            setShowModal(false); await load();
-        } catch (e) { setError(e instanceof Error ? e.message : "Failed."); }
-        finally { setSaving(false); }
+            const payload: Omit<ExportCommodity, "id"> = {
+                name: form.name.trim(),
+                spec: form.spec ?? "",
+                priceMin: Number(form.priceMin) || 0,
+                priceMax: Number(form.priceMax) || 0,
+                moq: form.moq ?? "",
+                catalogType: form.catalogType,
+                category: form.category,
+                certification: form.certification,
+                markets: form.markets ?? [],
+                packaging: form.packaging ?? [],
+                image: form.image ?? "",
+                galleryImages: (form.galleryImages ?? []).filter(Boolean),
+                description: form.description ?? "",
+                detailsHtml: form.detailsHtml ?? "",
+                relatedIds: form.relatedIds ?? [],
+                active: form.active !== false,
+                order: Number(form.order) || 0,
+            };
+            if (editing?.id) await updateExportCommodity(editing.id, payload);
+            else await createExportCommodity(payload);
+            setShowModal(false);
+            setEditing(null);
+            await load();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to save commodity.");
+        } finally {
+            setSaving(false);
+        }
     }
 
     async function handleDelete(id: string) {
@@ -101,7 +143,7 @@ export default function ExportCommoditiesPage() {
     const processedCount = items.filter(c => c.catalogType === "processed").length;
 
     return (
-        <div className="max-w-6xl space-y-4">
+        <div className="w-full space-y-4">
             <div className="section-header">
                 <div>
                     <h1 className="text-lg font-semibold text-gray-900">Export Commodities</h1>
@@ -167,8 +209,8 @@ export default function ExportCommoditiesPage() {
                     No commodities match these filters.
                 </div>
             ) : (
-                <div className="admin-card p-0 overflow-hidden overflow-x-auto">
-                    <table className="admin-table">
+                <div className="admin-card p-0 overflow-x-auto">
+                    <table className="admin-table" style={{ minWidth: 1100 }}>
                         <thead>
                             <tr>
                                 <th>Order</th>
@@ -181,7 +223,7 @@ export default function ExportCommoditiesPage() {
                                 <th>Packaging</th>
                                 <th>Price Range (USD/MT)</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th className="sticky right-0 z-10 bg-slate-50 whitespace-nowrap shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -209,7 +251,7 @@ export default function ExportCommoditiesPage() {
                                     <td className="text-xs text-gray-500 max-w-[120px]">{(c.markets ?? []).join(", ") || "—"}</td>
                                     <td className="text-xs text-gray-500 max-w-[100px]">{(c.packaging ?? []).join(", ") || "—"}</td>
                                     <td className="text-sm font-semibold text-green-700 whitespace-nowrap">
-                                        ${c.priceMin.toLocaleString()} – ${c.priceMax.toLocaleString()}
+                                        ${(c.priceMin ?? 0).toLocaleString()} – ${(c.priceMax ?? 0).toLocaleString()}
                                     </td>
                                     <td>
                                         <button onClick={() => toggleActive(c)}>
@@ -218,13 +260,13 @@ export default function ExportCommoditiesPage() {
                                             </span>
                                         </button>
                                     </td>
-                                    <td>
+                                    <td className="sticky right-0 z-10 bg-white whitespace-nowrap shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]">
                                         <div className="flex gap-2">
-                                            <button className="btn-secondary py-1 px-2 text-xs" onClick={() => openEdit(c)}>
-                                                <MdEdit size={13} />
+                                            <button type="button" className="btn-secondary py-1 px-2 text-xs inline-flex items-center gap-1" onClick={() => openEdit(c)}>
+                                                <MdEdit size={14} /> Edit
                                             </button>
-                                            <button className="btn-danger py-1 px-2 text-xs" onClick={() => handleDelete(c.id!)}>
-                                                <MdDelete size={13} />
+                                            <button type="button" className="btn-danger py-1 px-2 text-xs inline-flex items-center gap-1" onClick={() => handleDelete(c.id!)}>
+                                                <MdDelete size={14} /> Delete
                                             </button>
                                         </div>
                                     </td>
@@ -238,7 +280,7 @@ export default function ExportCommoditiesPage() {
             {/* Modal */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-box" style={{ maxWidth: 640 }}>
+                    <div className="modal-box" style={{ maxWidth: 720 }}>
                         <div className="modal-header">
                             <h2 className="text-base font-semibold">{editing ? "Edit Commodity" : "New Commodity"}</h2>
                             <button onClick={() => setShowModal(false)}><MdClose size={20} /></button>
@@ -358,19 +400,79 @@ export default function ExportCommoditiesPage() {
                             <ImageUpload
                                 value={form.image ?? ""}
                                 onChange={url => setForm({ ...form, image: url })}
-                                label="Product Image (shown in catalog table)"
+                                label="Main Product Image"
                             />
+
+                            <div>
+                                <label className="admin-label">Gallery images</label>
+                                <div className="grid grid-cols-2 gap-3 mt-1">
+                                    {(form.galleryImages ?? ["", ""]).map((url, i) => (
+                                        <ImageUpload
+                                            key={i}
+                                            value={url}
+                                            onChange={next => {
+                                                const gallery = [...(form.galleryImages ?? ["", ""])];
+                                                gallery[i] = next;
+                                                setForm({ ...form, galleryImages: gallery });
+                                            }}
+                                            label={`Gallery ${i + 1}`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="admin-label">Short description</label>
+                                <textarea className="admin-input" rows={2} value={form.description ?? ""} onChange={e => setForm({ ...form, description: e.target.value })} />
+                            </div>
+
+                            <div>
+                                <label className="admin-label">Full product details (WYSIWYG)</label>
+                                <WysiwygEditor
+                                    key={editing?.id ?? "new"}
+                                    content={form.detailsHtml ?? ""}
+                                    onChange={html => setForm({ ...form, detailsHtml: html })}
+                                    placeholder="Write the full commodity details…"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="admin-label">Related commodities</label>
+                                <div className="flex flex-wrap gap-2 mt-1 max-h-36 overflow-y-auto">
+                                    {items.filter(c => c.id && c.id !== editing?.id).map(c => {
+                                        const checked = (form.relatedIds ?? []).includes(c.id!);
+                                        return (
+                                            <label key={c.id} className={`text-xs px-3 py-1.5 rounded-full border cursor-pointer ${checked ? "bg-green-50 border-green-600 text-green-800" : "border-gray-200 text-gray-600"}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only"
+                                                    checked={checked}
+                                                    onChange={() => setForm({
+                                                        ...form,
+                                                        relatedIds: checked
+                                                            ? (form.relatedIds ?? []).filter(id => id !== c.id)
+                                                            : [...(form.relatedIds ?? []), c.id!],
+                                                    })}
+                                                />
+                                                {c.name}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                             <label className="flex items-center gap-2 text-sm cursor-pointer">
                                 <input type="checkbox" checked={form.active} onChange={e => setForm({ ...form, active: e.target.checked })} />
                                 Active (visible on export pages)
                             </label>
 
-                            <div className="flex gap-3 pt-2">
-                                <button className="btn-primary flex-1" onClick={handleSave} disabled={saving}>
+                            {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2">{error}</p>}
+
+                            <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+                                <button type="button" className="btn-primary flex-1" onClick={handleSave} disabled={saving}>
                                     {saving ? "Saving…" : editing ? "Update" : "Create"}
                                 </button>
-                                <button className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                             </div>
                         </div>
                     </div>

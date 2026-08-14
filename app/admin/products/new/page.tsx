@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createProduct, getProducts, FirestoreProduct } from '@/lib/firestore';
+import { createProduct, getProducts, FirestoreProduct, PRODUCT_MEASURE_UNITS } from '@/lib/firestore';
 import ImageUpload from '@/components/ImageUpload';
+import WysiwygEditor from '@/components/WysiwygEditor';
 import { MdClose, MdAdd } from 'react-icons/md';
 
 export default function NewProductPage() {
     const router = useRouter();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [images, setImages] = useState<string[]>(['', '']);
+    const [images, setImages] = useState<string[]>(['', '', '', '']);
     const [allProducts, setAllProducts] = useState<FirestoreProduct[]>([]);
     const [form, setForm] = useState({
         name: '',
@@ -22,6 +23,7 @@ export default function NewProductPage() {
         colors: '',
         description: '',
         details: [''],
+        detailsHtml: '',
         rating: '0',
         reviews: '0',
         inStock: true,
@@ -29,6 +31,20 @@ export default function NewProductPage() {
         isBestSeller: false,
         tags: '',
         recommendedAddonIds: [] as string[],
+        relatedProductIds: [] as string[],
+        weight: '',
+        weightUnit: 'kg',
+        measureAmount: '',
+        measureUnit: 'pcs',
+        servingSize: '',
+        gramsPerUnit: '',
+        caloriesPerServing: '',
+        protein: '',
+        carbs: '',
+        fat: '',
+        fibre: '',
+        sodium: '',
+        sugar: '',
     });
 
     useEffect(() => {
@@ -55,6 +71,7 @@ export default function NewProductPage() {
                 colors: form.colors ? form.colors.split(',').map(s => s.trim()).filter(Boolean) : [],
                 description: form.description.trim(),
                 details: form.details.filter(d => d.trim()),
+                detailsHtml: form.detailsHtml,
                 rating: Number(form.rating) || 0,
                 reviews: Number(form.reviews) || 0,
                 inStock: form.inStock,
@@ -62,6 +79,20 @@ export default function NewProductPage() {
                 isBestSeller: form.isBestSeller,
                 tags: form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : [],
                 recommendedAddonIds: form.recommendedAddonIds,
+                relatedProductIds: form.relatedProductIds,
+                weight: form.weight ? Number(form.weight) : undefined,
+                weightUnit: form.weightUnit || undefined,
+                measureAmount: form.measureAmount ? Number(form.measureAmount) : undefined,
+                measureUnit: form.measureUnit || undefined,
+                servingSize: form.servingSize.trim() || undefined,
+                gramsPerUnit: form.gramsPerUnit ? Number(form.gramsPerUnit) : undefined,
+                caloriesPerServing: form.caloriesPerServing ? Number(form.caloriesPerServing) : undefined,
+                protein: form.protein ? Number(form.protein) : undefined,
+                carbs: form.carbs ? Number(form.carbs) : undefined,
+                fat: form.fat ? Number(form.fat) : undefined,
+                fibre: form.fibre ? Number(form.fibre) : undefined,
+                sodium: form.sodium ? Number(form.sodium) : undefined,
+                sugar: form.sugar ? Number(form.sugar) : undefined,
             };
             await createProduct(data);
             router.push('/admin/products');
@@ -98,7 +129,17 @@ export default function NewProductPage() {
                         <ImageUpload
                             value={images[1]}
                             onChange={url => setImages(prev => { const n = [...prev]; n[1] = url; return n; })}
-                            label="Secondary Image"
+                            label="Image 2"
+                        />
+                        <ImageUpload
+                            value={images[2]}
+                            onChange={url => setImages(prev => { const n = [...prev]; n[2] = url; return n; })}
+                            label="Image 3"
+                        />
+                        <ImageUpload
+                            value={images[3]}
+                            onChange={url => setImages(prev => { const n = [...prev]; n[3] = url; return n; })}
+                            label="Image 4"
                         />
                     </div>
                 </div>
@@ -177,6 +218,59 @@ export default function NewProductPage() {
                             + Add Detail
                         </button>
                     </div>
+                    <div>
+                        <label className="admin-label">Full Product Details (WYSIWYG)</label>
+                        <WysiwygEditor
+                            content={form.detailsHtml}
+                            onChange={html => set('detailsHtml', html)}
+                            placeholder="Write the full product description…"
+                        />
+                    </div>
+                </div>
+
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Food Measurements</p>
+                    <p className="text-xs text-gray-500">Used for nutrition calculations (weight, cups, pieces, kg, etc.).</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="admin-label">Weight</label>
+                            <input type="number" min="0" step="0.01" className="admin-input" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="e.g. 1" />
+                        </div>
+                        <div>
+                            <label className="admin-label">Weight unit</label>
+                            <select className="admin-input" value={form.weightUnit} onChange={e => set('weightUnit', e.target.value)}>
+                                {PRODUCT_MEASURE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="admin-label">Measure amount</label>
+                            <input type="number" min="0" step="0.01" className="admin-input" value={form.measureAmount} onChange={e => set('measureAmount', e.target.value)} placeholder="e.g. 2" />
+                        </div>
+                        <div>
+                            <label className="admin-label">Measure unit (cup, pcs, kg…)</label>
+                            <select className="admin-input" value={form.measureUnit} onChange={e => set('measureUnit', e.target.value)}>
+                                {PRODUCT_MEASURE_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="admin-label">Serving size label</label>
+                            <input className="admin-input" value={form.servingSize} onChange={e => set('servingSize', e.target.value)} placeholder="e.g. 1 cup (150g)" />
+                        </div>
+                        <div>
+                            <label className="admin-label">Grams per unit</label>
+                            <input type="number" min="0" step="0.01" className="admin-input" value={form.gramsPerUnit} onChange={e => set('gramsPerUnit', e.target.value)} placeholder="For calculator conversion" />
+                        </div>
+                    </div>
+                    <p className="text-xs font-semibold uppercase text-gray-500 pt-2">Nutrition per serving</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div><label className="admin-label">Calories</label><input type="number" min="0" step="0.1" className="admin-input" value={form.caloriesPerServing} onChange={e => set('caloriesPerServing', e.target.value)} /></div>
+                        <div><label className="admin-label">Protein (g)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.protein} onChange={e => set('protein', e.target.value)} /></div>
+                        <div><label className="admin-label">Carbs (g)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.carbs} onChange={e => set('carbs', e.target.value)} /></div>
+                        <div><label className="admin-label">Fat (g)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.fat} onChange={e => set('fat', e.target.value)} /></div>
+                        <div><label className="admin-label">Fibre (g)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.fibre} onChange={e => set('fibre', e.target.value)} /></div>
+                        <div><label className="admin-label">Sodium (mg)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.sodium} onChange={e => set('sodium', e.target.value)} /></div>
+                        <div><label className="admin-label">Sugar (g)</label><input type="number" min="0" step="0.1" className="admin-input" value={form.sugar} onChange={e => set('sugar', e.target.value)} /></div>
+                    </div>
                 </div>
 
                 {/* Recommended Add-ons */}
@@ -212,6 +306,35 @@ export default function NewProductPage() {
                     )}
                     {form.recommendedAddonIds.length > 0 && (
                         <p className="text-xs text-green-700 font-medium">{form.recommendedAddonIds.length} add-on(s) selected</p>
+                    )}
+                </div>
+
+                <div className="admin-card space-y-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Related Products</p>
+                    <p className="text-xs text-gray-500">Shown as related products on this product&apos;s detail page.</p>
+                    {allProducts.length === 0 ? (
+                        <p className="text-xs text-gray-400">No other products yet — add more products first.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto border border-gray-100 p-3">
+                            {allProducts.filter(p => p.name !== form.name).map(p => {
+                                const checked = form.relatedProductIds.includes(p.id!);
+                                return (
+                                    <label key={p.id} className={`flex items-center gap-2 px-3 py-2 border cursor-pointer text-sm transition-colors ${checked ? 'border-green-600 bg-green-50 text-green-800' : 'border-gray-200 hover:border-gray-400 text-gray-700'}`}>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={checked}
+                                            onChange={() => set('relatedProductIds', checked
+                                                ? form.relatedProductIds.filter(id => id !== p.id)
+                                                : [...form.relatedProductIds, p.id!]
+                                            )}
+                                        />
+                                        <MdAdd size={14} className={checked ? 'text-green-600 rotate-45' : 'text-gray-400'} />
+                                        <p className="font-medium truncate">{p.name}</p>
+                                    </label>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
 

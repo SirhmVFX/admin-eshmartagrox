@@ -21,6 +21,11 @@ const defaultSettings = {
     showUser: true,
     shopBannerImage: "",
     shopBannerTitle: "Our Shop",
+    teamPageLabel: "The Team",
+    teamPageTitle: "Our Team",
+    teamPageSubtitle: "The people behind Eshmart Agrox.",
+    faqPageTitle: "Frequently Asked Questions",
+    faqPageSubtitle: "Answers to common questions about packs, delivery and exports.",
     // Social media
     facebook: "",
     instagram: "",
@@ -112,6 +117,32 @@ export default function SettingsPage() {
                     <div><label className="admin-label">Pinterest</label><input className="admin-input" value={(form as any).pinterest ?? ""} onChange={(e) => set("pinterest" as any, e.target.value)} placeholder="https://pinterest.com/…" /></div>
                     <div><label className="admin-label">Threads</label><input className="admin-input" value={(form as any).threads ?? ""} onChange={(e) => set("threads" as any, e.target.value)} placeholder="https://threads.net/@…" /></div>
                     <div><label className="admin-label">WhatsApp Number</label><input className="admin-input" value={(form as any).whatsapp ?? ""} onChange={(e) => set("whatsapp" as any, e.target.value)} placeholder="+2347047296000" /><p className="text-xs text-gray-400 mt-1">Include country code, digits only (e.g. +2347047296000).</p></div>
+                </div>
+            </div>
+
+            <div className="admin-card space-y-4">
+                <p className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-3">Company Pages</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="admin-label">Team page badge (pill)</label>
+                        <input className="admin-input" value={form.teamPageLabel ?? ""} onChange={(e) => set("teamPageLabel", e.target.value)} placeholder="e.g. The Team" />
+                    </div>
+                    <div>
+                        <label className="admin-label">Team page title</label>
+                        <input className="admin-input" value={form.teamPageTitle ?? ""} onChange={(e) => set("teamPageTitle", e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="admin-label">Team page subtitle</label>
+                        <input className="admin-input" value={form.teamPageSubtitle ?? ""} onChange={(e) => set("teamPageSubtitle", e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="admin-label">FAQ page title</label>
+                        <input className="admin-input" value={form.faqPageTitle ?? ""} onChange={(e) => set("faqPageTitle", e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="admin-label">FAQ page subtitle</label>
+                        <input className="admin-input" value={form.faqPageSubtitle ?? ""} onChange={(e) => set("faqPageSubtitle", e.target.value)} />
+                    </div>
                 </div>
             </div>
 
