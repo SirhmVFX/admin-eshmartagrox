@@ -994,7 +994,10 @@ export interface ExportHeroContent {
     catalogFootnote: string;
     quoteCta1Label: string;
     quoteCta2Label: string;
+    /** Hide indicative prices on catalog listings (homepage + /export). */
     hidePrices?: boolean;
+    /** Show indicative prices on the single commodity page. Defaults to true. */
+    showDetailPrices?: boolean;
     updatedAt?: Timestamp;
 }
 
@@ -1256,7 +1259,7 @@ export interface HealthCalculatorPage {
 
 export const DEFAULT_HEALTH_PAGE: HealthCalculatorPage = {
     pageTitle: "Health Calculator",
-    pageSubtitle: "Enter your height, weight, sleep, blood pressure, blood glucose and more to get a traffic-light health status.",
+    pageSubtitle: "Enter your age, height, weight, sleep, blood pressure, blood glucose and more to get a traffic-light health status.",
     disclaimer: "This calculator provides general wellness guidance only. It does not replace medical advice. Please consult your doctor for personal health conditions.",
     goodLabel: "Good health",
     fairLabel: "Fairly good health status",
@@ -1268,6 +1271,7 @@ export const DEFAULT_HEALTH_PAGE: HealthCalculatorPage = {
 };
 
 export const DEFAULT_HEALTH_METRICS: Omit<HealthMetric, "id">[] = [
+    { key: "age", label: "Age", unit: "years", icon: "🎂", placeholder: "e.g. 34", helpText: "Your age in years.", kind: "number", scored: false, greenMin: 0, greenMax: 0, yellowMin: 0, yellowMax: 0, order: 0, active: true },
     { key: "height", label: "Height", unit: "cm", icon: "📏", placeholder: "e.g. 170", helpText: "Used with weight to calculate BMI.", kind: "number", scored: false, greenMin: 0, greenMax: 0, yellowMin: 0, yellowMax: 0, order: 1, active: true },
     { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", placeholder: "e.g. 68", helpText: "Used with height to calculate BMI.", kind: "number", scored: false, greenMin: 0, greenMax: 0, yellowMin: 0, yellowMax: 0, order: 2, active: true },
     { key: "bmi", label: "Body Mass Index (BMI)", unit: "kg/m²", icon: "📊", helpText: "Calculated automatically from height and weight.", kind: "derived_bmi", scored: true, greenMin: 18.5, greenMax: 24.9, yellowMin: 17, yellowMax: 29.9, order: 3, active: true },

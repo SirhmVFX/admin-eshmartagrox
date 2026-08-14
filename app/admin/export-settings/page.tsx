@@ -20,6 +20,7 @@ const DEFAULT_HERO: ExportHeroContent = {
     quoteCta1Label: "Send Quote Request",
     quoteCta2Label: "Talk to export desk",
     hidePrices: false,
+    showDetailPrices: true,
 };
 
 const emptyDest: Omit<ExportDestination, "id"> = {
@@ -110,14 +111,33 @@ export default function ExportSettingsPage() {
                     <div><label className="admin-label">Quote CTA 2 Label</label><input className="admin-input" value={hero.quoteCta2Label} onChange={e => setH("quoteCta2Label", e.target.value)} /></div>
                 </div>
                 <div><label className="admin-label">Catalog Footnote</label><textarea className="admin-input" rows={2} value={hero.catalogFootnote} onChange={e => setH("catalogFootnote", e.target.value)} /></div>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input
-                        type="checkbox"
-                        checked={!!hero.hidePrices}
-                        onChange={e => setHero(h => ({ ...h, hidePrices: e.target.checked }))}
-                    />
-                    Hide prices / cost on the full export catalog
-                </label>
+                <div className="space-y-2 border border-gray-100 rounded-lg p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Indicative prices</p>
+                    <label className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={!!hero.hidePrices}
+                            onChange={e => setHero(h => ({ ...h, hidePrices: e.target.checked }))}
+                        />
+                        <span>
+                            Hide indicative prices on the catalog listing
+                            <span className="block text-xs text-gray-400 font-normal">Homepage (local) and International Export page — all products view</span>
+                        </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={hero.showDetailPrices !== false}
+                            onChange={e => setHero(h => ({ ...h, showDetailPrices: e.target.checked }))}
+                        />
+                        <span>
+                            Show indicative prices on the single commodity page
+                            <span className="block text-xs text-gray-400 font-normal">When a buyer opens one export product</span>
+                        </span>
+                    </label>
+                </div>
                 <button className="btn-primary flex items-center gap-2 py-2 px-4 text-sm" onClick={handleSaveHero} disabled={heroSaving}>
                     <MdSave size={15} /> {heroSaved ? "Saved!" : heroSaving ? "Saving…" : "Save Hero Content"}
                 </button>

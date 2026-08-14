@@ -114,7 +114,7 @@ export default function HealthCalculatorAdminPage() {
     }
 
     async function seedDefaults() {
-        if (!confirm("Add the default health metrics (height, weight, BMI, sleep, BP, glucose, etc.)? Existing metrics are kept.")) return;
+        if (!confirm("Add any missing default metrics (age, height, weight, BMI, sleep, BP, glucose, etc.)? Existing metrics are kept.")) return;
         setSeeding(true);
         try {
             const existingKeys = new Set(metrics.map(m => m.key));
